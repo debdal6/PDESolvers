@@ -46,10 +46,12 @@ line, = ax.plot(x, u[0])
 # setting y-axis limits
 ax.set_ylim(bottom=0, top=60)
 
+
 def animate(frame):
     line.set_ydata(u[frame])
     ax.set_title(f'Heat Distribution at time = {frame * dt:.2f}s')
     return line,
+
 
 ani = FuncAnimation(fig, animate, frames=range(0, time_step, time_step // 100), blit=False)
 
