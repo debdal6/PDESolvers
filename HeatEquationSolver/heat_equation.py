@@ -15,7 +15,7 @@ time_step = int(time/dt)
 
 # creating grid
 x = np.linspace(0, length, nodes)
-t= np.linspace(0, time, time_step)
+t = np.linspace(0, time, time_step)
 
 # initial and boundary conditions
 u_initial = 25
@@ -33,8 +33,6 @@ for tau in range(0, time_step-1):
     for i in range(1, nodes - 1):
         u[tau+1,i] = u[tau, i] + (dt * k * (u[tau, i-1] - 2 * u[tau, i] + u[tau, i+1]) / dx**2)
 
-
-print(u)
 
 # setting up plots
 fig, ax = plt.subplots()
