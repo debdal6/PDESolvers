@@ -10,13 +10,13 @@ import matplotlib.pyplot as pyPlot
 lengthOfRod = 10
 maxTime = 1
 heatConductivity = 1 #100 is going the least in nagtive and 1000 produces the same graph to my eye
-numPointimeSpaceSpace = 200
-numPointimeSpaceTime = 2000
+numPointsSpace = 200
+numPointsTime = 2000
 
 # Length Vector plotted on x-axis
-xSpace = numpy.linspace(0, lengthOfRod, numPointimeSpaceSpace)
+xSpace = numpy.linspace(0, lengthOfRod, numPointsSpace)
 # Time Vector plotted on y-axis
-timeSpace = numpy.linspace(0, maxTime, numPointimeSpaceTime)
+timeSpace = numpy.linspace(0, maxTime, numPointsTime)
 
 timeStepSize = timeSpace[1] - timeSpace[0]
 spaceStepSize = xSpace[1] - xSpace[0]
@@ -47,4 +47,7 @@ for tau in range (1, timeSpaceLength-1):
 			) + tempMatrix[j,tau-1]
 
 pyPlot.plot(tempMatrix)
+pyPlot.xlabel("Length")
+pyPlot.ylabel("Time")
+pyPlot.title("1D Heat Diffusion Graph Plot")
 pyPlot.show()
