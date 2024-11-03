@@ -49,15 +49,13 @@ def solve_heat_equation(length, nodes, time, k, initial_temp):
     time_step = int(time/dt)
     t = np.linspace(0, time, time_step)
 
-    u_initial = initial_temp
-    u_left = left_temp_func(initial_temp, t)
-    u_right = right_temp_func(initial_temp, t)
     u = np.zeros((time_step, nodes))
-    u[0, :] = u_initial
+
+    u[0, :] = initial_temp
+    u[:, 0] = left_temp_func(initial_temp, t)
+    u[:, -1] = right_temp_func(initial_temp, t)
 
     for tau in range(0, time_step-1):
-        u[tau+1, 0] = u_left[tau+1]
-        u[tau+1, -1] = u_right[tau+1]
         for i in range(1, nodes - 1):
             u[tau+1,i] = u[tau, i] + (dt * k * (u[tau, i-1] - 2 * u[tau, i] + u[tau, i+1]) / dx**2)
 
