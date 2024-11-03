@@ -41,7 +41,9 @@ def solve_heat_equation(length, nodes, time, k, initial_temp):
     :param time: the total time
     :param k: heat diffusivity constant
     :param initial_temp: initial temperature of the rod at t=0
-    :return: the solved 2d matrix consisting the temperature distribution over time
+    :return: - u: the solved 2d matrix consisting the temperature distribution over time
+             - dt: time step size (used for plotting)
+             - time_step: no. of time steps for the simulation (used for plotting)
     """
     dx = length / (nodes-1)
     dt_max = 0.5 * (dx**2) / k  # calculating dt using a formula (to ensure stability)
