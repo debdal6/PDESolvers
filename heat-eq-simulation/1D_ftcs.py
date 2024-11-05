@@ -21,13 +21,22 @@ timeDomain = numpy.linspace(0, maxTime, numPointsTime)
 timeStepSize = timeDomain[1] - timeDomain[0]
 spaceStepSize = xDomain[1] - xDomain[0]
 
-boundaryConditions = numpy.array([numpy.sin(lengthOfRod)+numpy.sin(maxTime), 
-                    	numpy.sin(lengthOfRod)])
-intialConditions = numpy.sin(xDomain)
+# lambda functions for u0- initial condition and alpha and beta- boundary condtions
+u0 = lambda x: numpy.sin(x)
+alpha = lambda t: 5 * t
+beta = lambda t: numpy.sin(lengthOfRod) + 2*t
+
+# error assertion for intial nd boundary conditions
+eps = 1e-12
+err = numpy.abs(u0(0) - alpha(0))
+assert(err < eps)
+
+#intialiizing the boundary conditions and initial condtions
+boundaryConditions = numpy.array([alpha(timeDomain), beta(timeDomain)])
+intialConditions = u0(xDomain)
 
 xDomainLength = len(xDomain)
 timeDomainLength = len(timeDomain)
-
 
 # Empty Matrix/NestedList with zeroes
 tempMatrix = numpy.zeros((xDomainLength, timeDomainLength))
@@ -36,16 +45,17 @@ tempMatrix[-1,:] = boundaryConditions[1]
 tempMatrix[:, 0] = intialConditions
 
 lambdaConstant = (diffusivityConstant * timeStepSize) / spaceStepSize**2
+assert(lambdaConstant < 0.5)
 print(lambdaConstant)
 
-for tau in range (1, timeDomainLength-1):
+for tau in range (1, timeDomainLength):
 	for j in range (1, xDomainLength-1):
 		tempMatrix[j,tau] = (
 				lambdaConstant * (
 					tempMatrix[j-1,tau-1] - 2 * tempMatrix[j,tau-1] + tempMatrix[j+1,tau-1]
 				)
 			) + tempMatrix[j,tau-1]
-print(tempMatrix)
+
 
 # Create a meshgrid for plotting
 X, Y = numpy.meshgrid(timeDomain, xDomain)
