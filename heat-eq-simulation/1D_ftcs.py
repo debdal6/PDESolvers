@@ -9,45 +9,56 @@ import matplotlib.pyplot as pyPlot
 
 lengthOfRod = 10
 maxTime = 1
-heatConductivity = 1 #100 is going the least in nagtive and 1000 produces the same graph to my eye
+diffusivityConstant = 1
 numPointsSpace = 200
 numPointsTime = 2000
 
 # Length Vector plotted on x-axis
-xSpace = numpy.linspace(0, lengthOfRod, numPointsSpace)
+xDomain = numpy.linspace(0, lengthOfRod, numPointsSpace)
 # Time Vector plotted on y-axis
-timeSpace = numpy.linspace(0, maxTime, numPointsTime)
+timeDomain = numpy.linspace(0, maxTime, numPointsTime)
 
-timeStepSize = timeSpace[1] - timeSpace[0]
-spaceStepSize = xSpace[1] - xSpace[0]
+timeStepSize = timeDomain[1] - timeDomain[0]
+spaceStepSize = xDomain[1] - xDomain[0]
 
-boundaryConditions = [numpy.sin(lengthOfRod)+numpy.sin(maxTime), 
-                    	numpy.sin(lengthOfRod)]
-intialConditions = numpy.sin(xSpace)
+boundaryConditions = numpy.array([numpy.sin(lengthOfRod)+numpy.sin(maxTime), 
+                    	numpy.sin(lengthOfRod)])
+intialConditions = numpy.sin(xDomain)
 
-xSpaceLength = len(xSpace)
-timeSpaceLength = len(timeSpace)
+xDomainLength = len(xDomain)
+timeDomainLength = len(timeDomain)
 
 
 # Empty Matrix/NestedList with zeroes
-tempMatrix = numpy.zeros((xSpaceLength, timeSpaceLength))
+tempMatrix = numpy.zeros((xDomainLength, timeDomainLength))
 tempMatrix[0,:] = boundaryConditions[0]
 tempMatrix[-1,:] = boundaryConditions[1]
 tempMatrix[:, 0] = intialConditions
 
-diffusivityConstant = (heatConductivity * timeStepSize) / spaceStepSize**2
-print(diffusivityConstant)
+lambdaConstant = (diffusivityConstant * timeStepSize) / spaceStepSize**2
+print(lambdaConstant)
 
-for tau in range (1, timeSpaceLength-1):
-	for j in range (1, xSpaceLength-1):
+for tau in range (1, timeDomainLength-1):
+	for j in range (1, xDomainLength-1):
 		tempMatrix[j,tau] = (
-				diffusivityConstant * (
+				lambdaConstant * (
 					tempMatrix[j-1,tau-1] - 2 * tempMatrix[j,tau-1] + tempMatrix[j+1,tau-1]
 				)
 			) + tempMatrix[j,tau-1]
+print(tempMatrix)
 
-pyPlot.plot(tempMatrix)
-pyPlot.xlabel("Length")
-pyPlot.ylabel("Time")
-pyPlot.title("1D Heat Diffusion Graph Plot")
+# Create a meshgrid for plotting
+X, Y = numpy.meshgrid(timeDomain, xDomain)
+
+# Plot the 3D surface
+fig = pyPlot.figure(figsize=(10, 7))
+ax = fig.add_subplot(111, projection='3d')
+surface = ax.plot_surface(X, Y, tempMatrix, cmap='viridis', edgecolor='none')
+
+# Set labels and title
+ax.set_xlabel('Time')
+ax.set_ylabel('Position along the rod')
+ax.set_zlabel('Temperature')
+ax.set_title('1D Heat Diffusion Simulation')
+
 pyPlot.show()
