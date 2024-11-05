@@ -53,7 +53,7 @@ X, Y = numpy.meshgrid(timeDomain, xDomain)
 # Plot the 3D surface
 fig = pyPlot.figure(figsize=(10, 7))
 ax = fig.add_subplot(111, projection='3d')
-surface = ax.plot_surface(X, Y, tempMatrix, cmap='viridis', edgecolor='none')
+surface = ax.plot_surface(X, Y, tempMatrix, cmap='inferno')
 
 # Set labels and title
 ax.set_xlabel('Time')
