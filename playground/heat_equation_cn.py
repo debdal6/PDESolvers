@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.sparse.linalg import spsolve
+from scipy.sparse import csc_matrix
 from matplotlib import pyplot as plt
-from matplotlib.animation import FuncAnimation
 
 # setting up parameters
 length = 1
@@ -49,6 +49,8 @@ def build_tridiagonal_matrix(a, b, c, nodes):
     np.fill_diagonal(matrix[1:], a)
     np.fill_diagonal(matrix[:, 1:], c)
 
+    matrix = csc_matrix(matrix)
+
     return matrix
 
 
@@ -95,43 +97,32 @@ def solve_heat_equation_cn(length, nodes, time, k, initial_temp):
 
         u[tau+1, 1:-1] = spsolve(lhs, rhs)
 
-    return u, dt, time_step
+    return u, t
 
 
-def plot(u, dt, time_step):
-    """
-    Plots the temperature distribution of the rod over time
-
-    :param u: the solved 2d matrix consisting the temperature distribution over time
-    :param dt: time step size
-    :param time_step: no of time steps for the simulation
-    :return: an animated diagram of temperature distribution
-    """
-    # setting up plots
-    fig, ax = plt.subplots()
-    ax.set_title('Heat Distribution over time')
-    ax.set_xlabel('Length across the rod')
-    ax.set_ylabel('Temperature')
-    # plotting initial temperature distribution at t = 0
+def plot(u, t):
     x = np.linspace(0, length, nodes)
-    line, = ax.plot(x, u[0])
-    # setting y-axis limits
-    ax.set_ylim(bottom=0, top=60)
 
-    def animate(frame):
-        line.set_ydata(u[frame])
-        ax.set_title(f'Heat Distribution at time = {frame * dt:.2f}s')
+    x_plot, t_plot = np.meshgrid(x,t)
 
-        return line,
+    # plotting the 3d surface
+    fig = plt.figure(figsize=(10,6))
+    ax = fig.add_subplot(111, projection='3d')
+    surf = ax.plot_surface(x_plot, t_plot, u, cmap='viridis')
 
-    ani = FuncAnimation(fig, animate, frames=range(0, time_step, time_step // 100), blit=False)
+    # set labels and title
+    ax.set_xlabel('Space')
+    ax.set_ylabel('Time')
+    ax.set_zlabel('Temperature')
+    ax.set_title('3D Surface Plot of 1D Heat Equation')
+
     plt.show()
 
 
 def main():
-    u, dt, time_step = solve_heat_equation_cn(length, nodes, time, k, initial_temp)
+    u, t = solve_heat_equation_cn(length, nodes, time, k, initial_temp)
     print(u)
-    plot(u, dt, time_step)
+    plot(u, t)
 
 
 if __name__ == "__main__":
