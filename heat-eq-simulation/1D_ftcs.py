@@ -69,6 +69,6 @@ surface = ax.plot_surface(X, Y, tempMatrix, cmap='inferno')
 ax.set_xlabel('Time')
 ax.set_ylabel('Position along the rod')
 ax.set_zlabel('Temperature')
-ax.set_title('1D Heat Diffusion Simulation')
+ax.set_title('1D Heat Diffusion Numerical Simulation using FTCS Explicit Method')
 
 pyPlot.show()

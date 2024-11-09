@@ -43,7 +43,7 @@ tempMatrix[0,:] = boundaryConditions[0]
 tempMatrix[-1,:] = boundaryConditions[1]
 tempMatrix[:, 0] = intialConditions
 
-lambdaConstant = (diffusivityConstant * timeStepSize) / 2*(spaceStepSize**2)
+lambdaConstant = (diffusivityConstant * timeStepSize) / (2*spaceStepSize**2)
 print(lambdaConstant)
 
 # Set up tridiagonal matrix coefficients
@@ -58,7 +58,6 @@ A = diags([lowerDiagonal, mainDiagonal, upperDiagonal], offsets=[-1, 0, 1], form
 
 # Time-stepping loop
 for tau in range(1, numPointsTime):
-    # TODO: fix this, rhs equation is wrong line#64 and #65
     # Right-hand side (RHS) based on previous time step
     rhs = lambdaConstant * tempMatrix[0:-2, tau-1] + (1 - 2 * lambdaConstant) * tempMatrix[1:-1, tau-1] + lambdaConstant * tempMatrix[2:, tau-1]
     rhs[0] += lambdaConstant * tempMatrix[0, tau]    # Incorporate left boundary
@@ -84,6 +83,6 @@ surface = ax.plot_surface(X, Y, tempMatrix, cmap='inferno')
 ax.set_xlabel('Time')
 ax.set_ylabel('Position along the rod (x)')
 ax.set_zlabel('Temperature')
-ax.set_title('1D Heat Diffusion Simulation')
+ax.set_title('1D Heat Diffusion Numerical Simulation using Crank-Nicolson Method')
 
 pyPlot.show()
