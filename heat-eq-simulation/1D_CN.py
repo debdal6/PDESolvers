@@ -53,8 +53,6 @@ upperDiagonal = -lambdaConstant * numpy.ones(numPointsSpace - 3)
 
 # Create the sparse tridiagonal matrix A
 A = diags([lowerDiagonal, mainDiagonal, upperDiagonal], offsets=[-1, 0, 1], format='csr')
-#pyPlot.spy(A)
-#pyPlot.show()
 
 # Time-stepping loop
 for tau in range(1, numPointsTime):
@@ -65,7 +63,6 @@ for tau in range(1, numPointsTime):
     
     # Solve for the current time step's interior points
     solution = spsolve(A, rhs)
-    # print(solution.shape)
     
     # Update the temperature matrix with the new time step values for interior points
     tempMatrix[1:-1, tau] = solution
