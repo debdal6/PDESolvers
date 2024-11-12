@@ -68,8 +68,7 @@ def solve_heat_equation_cn(length, nodes, time, k, initial_temp):
              - time_step: no. of time steps for the simulation (used for plotting)
     """
     dx = length / (nodes-1)
-    dt_max = 0.5 * (dx**2) / k  # calculating dt using a formula (to ensure stability)
-    dt = 0.8 * dt_max
+    dt = 0.001
     time_step = int(time/dt)
     t = np.linspace(0, time, time_step)
 
