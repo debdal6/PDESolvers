@@ -2,54 +2,58 @@
 # for derving the solution to PDEs
 
 # we will use the crank-nicolson method below to simulate the 1D Heat Equation
-import numpy
+import numpy as np
 import matplotlib.pyplot as pyPlot
 from scipy.sparse import diags
 from scipy.sparse.linalg import spsolve
 
 # Global Constants
-
-lengthOfRod = 10
+xLength = 10
+yLength = 10
 maxTime = 1
 diffusivityConstant = 1
 numPointsSpace = 1000
 numPointsTime = 2000
 
-# Length Vector plotted on x-axis
-xDomain = numpy.linspace(0, lengthOfRod, numPointsSpace)
-# Time Vector plotted on y-axis
-timeDomain = numpy.linspace(0, maxTime, numPointsTime)
+# Length Vector plotted on x-axis and y-axis
+xDomain = np.linspace(0, xLength, numPointsSpace)
+yDomain = np.linspace(0, yLength, numPointsSpace)
+# Time Vector plotted on z-axis
+timeDomain = np.linspace(0, maxTime, numPointsTime)
 
 timeStepSize = timeDomain[1] - timeDomain[0]
 spaceStepSize = xDomain[1] - xDomain[0]
 
 # lambda functions for u0- initial condition and alpha and beta- boundary condtions
-u0 = lambda x: numpy.sin(x)
-alpha = lambda t: 5 * t
-beta = lambda t: numpy.sin(lengthOfRod) + 2*t
-
-#intialiizing the boundary conditions and initial condtions
-boundaryConditions = numpy.array([alpha(timeDomain), beta(timeDomain)])
-intialConditions = u0(xDomain)
+u0 = lambda n: np.sin(n)
+alpha = lambda t, n: 2 * n + 5 * t
+beta = lambda t, n: np.sin(n) + 2 * t
 
 # error assertion for intial nd boundary conditions
 eps = 1e-12
-err = numpy.abs(u0(0) - alpha(0))
+err = np.abs(u0(0) - alpha(0,0))
 assert(err < eps)
 
 # Empty Matrix/NestedList with zeroes
-tempMatrix = numpy.zeros((numPointsSpace, numPointsTime))
-tempMatrix[0,:] = boundaryConditions[0]
-tempMatrix[-1,:] = boundaryConditions[1]
-tempMatrix[:, 0] = intialConditions
+tempMatrix = np.zeros((numPointsSpace, numPointsSpace, numPointsTime))
+# X-axis boundaries (first and last rows)
+tempMatrix[0, :, :] = alpha(timeDomain, xLength)  # Left x boundary
+tempMatrix[-1, :, :] = beta(timeDomain, xLength)  # Right x boundary
+
+# Y-axis boundaries (first and last columns)
+tempMatrix[:, 0, :] = alpha(timeDomain, yLength)  # Bottom y boundary 
+tempMatrix[:, -1, :] = beta(timeDomain, yLength)  # Top y boundary
+
+# Initial conditions for entire 2D space at t=0
+tempMatrix[:, :, 0] = np.outer(u0(xDomain), u0(yDomain))
 
 # lambdaConstant = (diffusivityConstant * timeStepSize) / (2*spaceStepSize**2)
 # print(lambdaConstant)
 
 # # Set up tridiagonal matrix coefficients
-# mainDiagonal = (1 + 2 * lambdaConstant) * numpy.ones(numPointsSpace - 2)
-# lowerDiagonal = -lambdaConstant * numpy.ones(numPointsSpace - 3)
-# upperDiagonal = -lambdaConstant * numpy.ones(numPointsSpace - 3)
+# mainDiagonal = (1 + 2 * lambdaConstant) * np.ones(numPointsSpace - 2)
+# lowerDiagonal = -lambdaConstant * np.ones(numPointsSpace - 3)
+# upperDiagonal = -lambdaConstant * np.ones(numPointsSpace - 3)
 
 # # Create the sparse tridiagonal matrix A
 # A = diags([lowerDiagonal, mainDiagonal, upperDiagonal], offsets=[-1, 0, 1], format='csr')
@@ -68,18 +72,20 @@ tempMatrix[:, 0] = intialConditions
 #     tempMatrix[1:-1, tau] = solution
 
 # # Visualization
-# # Create a meshgrid for plotting
-# X, Y = numpy.meshgrid(timeDomain, xDomain)
+# # Create meshgrid for x and y coordinates
+# X, Y = np.meshgrid(xDomain, yDomain)
 
-# # Plot the 3D surface
+# # Create the figure and 3D axes
 # fig = pyPlot.figure(figsize=(10, 7))
 # ax = fig.add_subplot(111, projection='3d')
-# surface = ax.plot_surface(X, Y, tempMatrix, cmap='inferno')
+
+# # Plot the surface for the last time step
+# surface = ax.plot_surface(X, Y, tempMatrix[:,:,-1], cmap='inferno')
 
 # # Set labels and title
-# ax.set_xlabel('Time')
-# ax.set_ylabel('Position along the rod (x)')
+# ax.set_xlabel('X Position')
+# ax.set_ylabel('Y Position')
 # ax.set_zlabel('Temperature')
-# ax.set_title('1D Heat Diffusion Numerical Simulation using Crank-Nicolson Method')
+# ax.set_title('2D Heat Diffusion')
 
 # pyPlot.show()
