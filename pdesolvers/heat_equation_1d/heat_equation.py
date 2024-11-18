@@ -1,54 +1,17 @@
 import numpy as np
-from matplotlib import pyplot as plt
-
-from pdesolvers.heat_equation_1d.strategy.solver_strategy import SolverStrategy
-
 
 class HeatEquation:
 
-    def __init__(self, length, x_nodes, time, t_nodes, k, solver: SolverStrategy = None):
+    def __init__(self, length, x_nodes, time, t_nodes, k):
         self.__length = length
         self.__x_nodes = x_nodes
         self.__time = time
         self.__t_nodes = t_nodes
         self.__k = k
-        self.__solver = solver
         self.__initial_temp = None
         self.__left_boundary_temp = None
         self.__right_boundary_temp = None
         self.__u = None
-
-    def set_solver(self, strategy: SolverStrategy):
-        self.__solver = strategy
-
-    def solve(self):
-        if self.__solver is None:
-            raise RuntimeError("Solver has not been set. Please pick one")
-
-        self.__solver.solve(self)
-        return self
-
-    def plot(self):
-
-        if self.__u is None:
-            raise RuntimeError("Solution has not been computed - please run the solver.")
-
-        x = self._generate_x_grid()
-        t = self._generate_t_grid()
-        x_plot, t_plot = np.meshgrid(x,t)
-
-        # plotting the 3d surface
-        fig = plt.figure(figsize=(10,6))
-        ax = fig.add_subplot(111, projection='3d')
-        surf = ax.plot_surface(x_plot, t_plot, self._get_result(), cmap='viridis')
-
-        # set labels and title
-        ax.set_xlabel('Space')
-        ax.set_ylabel('Time')
-        ax.set_zlabel('Temperature')
-        ax.set_title('3D Surface Plot of 1D Heat Equation')
-
-        plt.show()
 
     def set_initial_temp(self, u0):
         self.__validate_callable(u0)
