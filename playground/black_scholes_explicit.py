@@ -60,7 +60,7 @@ class BlackScholesExplicitSolver():
         # plotting the 3d surface
         fig = plt.figure(figsize=(10,6))
         ax = fig.add_subplot(111, projection='3d')
-        surf = ax.plot_surface(X, Y, self.__get_V(), cmap='viridis')
+        surf = ax.plot_surface(X, Y, self.get_V(), cmap='viridis')
 
         ax.set_xlabel('Time')
         ax.set_ylabel('Asset Price')
@@ -77,7 +77,7 @@ class BlackScholesExplicitSolver():
     def __generate_time_grid(self):
         return np.linspace(0, self.__expiry, self.__t_nodes + 1)
 
-    def __get_V(self):
+    def get_V(self):
         return self.__V
 
 def main():
