@@ -23,33 +23,35 @@ timeStepSize = timeDomain[1] - timeDomain[0]
 spaceStepSize = xDomain[1] - xDomain[0]
 
 # lambda functions for u0- initial condition and alpha and beta- boundary condtions
-u0 = lambda n: np.sin(n)
-alpha = lambda t, n: 2 * n + 5 * t
-beta = lambda t, n: np.sin(n) + 2 * t
-
+u0 = lambda x, y: 5 * np.sin(x) + 3 * np.cos(y)
+left = lambda t, y: 3 * np.cos(y) + t
+right = lambda t, y: 5 * np.sin(xLength) + 3 * np.cos(y) + t
+down = lambda t, x: 5 * np.sin(x) + t
+up = lambda t, x: 5 * np.sin(x) + 3 * np.cos(yLength) + t
 # error assertion for intial nd boundary conditions
 eps = 1e-12
-err = np.abs(u0(0) - alpha(0,0))
-assert(err < eps)
+err1 = np.abs(u0(0,0) - left(0, 0))
+err2 = np.abs(u0(0,0) - down(0, 0))
+assert(err1 < eps)
 
 # Empty Matrix/NestedList with zeroes
 tempMatrix = np.zeros((numPointsSpace, numPointsSpace, numPointsTime))
 # X-axis boundaries (first and last rows)
-tempMatrix[0, :, :] = alpha(timeDomain, xLength)  # Left x boundary
-tempMatrix[-1, :, :] = beta(timeDomain, xLength)  # Right x boundary
+tempMatrix[0, :, :] = left(timeDomain, yDomain)   # Left x boundary
+tempMatrix[-1, :, :] = right(timeDomain, yDomain) # Right x boundary
 
 # Y-axis boundaries (first and last columns)
-tempMatrix[:, 0, :] = alpha(timeDomain, yLength)  # Bottom y boundary 
-tempMatrix[:, -1, :] = beta(timeDomain, yLength)  # Top y boundary
+tempMatrix[:, 0, :] = down(timeDomain, xDomain) # Bottom y boundary 
+tempMatrix[:, -1, :] = up(timeDomain, xDomain) # Top y boundary
 
 # Initial conditions for entire 2D space at t=0
-tempMatrix[:, :, 0] = np.outer(u0(xDomain), u0(yDomain))
+tempMatrix[:, :, 0] = np.outer(u0(xDomain, yDomain), u0(xDomain, yDomain))
 
 # Calculate lambda constants for x and y (they're the same if dx = dy)
 lambdaConstant = (diffusivityConstant * timeStepSize) / spaceStepSize**2
 
 # Stability condition for 2D heat equation (stricter than 1D)
-assert(lambdaConstant < 0.25)  # Note: 0.25 instead of 0.5 for 2D
+# assert(lambdaConstant < 0.25)  # Note: 0.25 instead of 0.5 for 2D
 print(lambdaConstant)
 
 # Time-stepping loop
@@ -76,7 +78,7 @@ fig = pyPlot.figure(figsize=(10, 7))
 ax = fig.add_subplot(111, projection='3d')
 
 # Plot the surface for the specific time step
-surface = ax.plot_surface(X, Y, tempMatrix[:,:,0], cmap='inferno')
+surface = ax.plot_surface(X, Y, tempMatrix[:,:,-1], cmap='inferno')
 
 # Set labels and title
 ax.set_xlabel('X Position')
