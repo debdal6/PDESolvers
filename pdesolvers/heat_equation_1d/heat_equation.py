@@ -1,4 +1,5 @@
 import numpy as np
+from matplotlib import pyplot as plt
 
 class HeatEquation:
 
@@ -11,7 +12,6 @@ class HeatEquation:
         self.__initial_temp = None
         self.__left_boundary_temp = None
         self.__right_boundary_temp = None
-        self.__u = None
 
     def set_initial_temp(self, u0):
         self.__validate_callable(u0)
@@ -50,43 +50,35 @@ class HeatEquation:
         if not callable(func):
             raise ValueError("Temperature conditions must be a callable function")
 
-    def _generate_x_grid(self):
+    def generate_x_grid(self):
         return np.linspace(0, self.__length, self.__x_nodes)
 
-    def _generate_t_grid(self):
+    def generate_t_grid(self):
         return np.linspace(0, self.__time, self.__t_nodes)
 
-    def _set_result(self, u):
-        self.__u = u
-        return self
-
-    def _set_t_nodes(self, nodes):
+    def set_t_nodes(self, nodes):
         self.__t_nodes = nodes
 
-    def _get_length(self):
+    def get_length(self):
         return self.__length
 
-    def _get_time(self):
+    def get_time(self):
         return self.__time
 
-    def _get_x_nodes(self):
+    def get_x_nodes(self):
         return self.__x_nodes
 
-    def _get_t_nodes(self):
+    def get_t_nodes(self):
         return self.__t_nodes
 
-    def _get_k(self):
+    def get_k(self):
         return self.__k
 
-    def _get_initial_temp(self, x):
+    def get_initial_temp(self, x):
         return self.__initial_temp(x)
 
-    def _get_left_boundary(self, t):
+    def get_left_boundary(self, t):
         return self.__left_boundary_temp(t)
 
-    def _get_right_boundary(self, t):
+    def get_right_boundary(self, t):
         return self.__right_boundary_temp(t)
-
-    def _get_result(self):
-        return self.__u
-
