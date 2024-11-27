@@ -2,7 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 
-class BlackScholesExplicitSolver():
+class BlackScholesExplicitSolver:
 
     """
     The Black Scholes equation is a Partial Differential Equation (PDE) used to determine the fair value price of an
@@ -41,8 +41,6 @@ class BlackScholesExplicitSolver():
         :return: the solver instance with the computed option values
         """
 
-        q = self.__check_option_type()
-
         if self.__t_nodes is None:
             dt_max = 1/((self.__s_nodes**2) * (self.__sigma**2)) # cfl condition to ensure stability
             dt = 0.9 * dt_max
@@ -60,7 +58,10 @@ class BlackScholesExplicitSolver():
         V = np.zeros((self.__s_nodes+1, self.__t_nodes+1))
 
         # setting terminal condition
-        V[:,-1] = np.maximum(q * (S - self.__K), 0)
+        if self.__option_type == 'call':
+            V[:,-1] = np.maximum((S - self.__K), 0)
+        elif self.__option_type == 'put':
+            V[:,-1] = np.maximum((self.__K - S), 0)
 
         for tau in reversed(range(self.__t_nodes)):
             for i in range(1, self.__s_nodes):
@@ -70,11 +71,13 @@ class BlackScholesExplicitSolver():
                 V[i, tau] = V[i, tau + 1] - (theta * dt)
 
             # setting boundary conditions
-            lower, upper = self.__set_boundary_conditions(q, T, tau)
+            lower, upper = self.__set_boundary_conditions(T, tau)
             V[0, tau] = lower
             V[self.__s_nodes, tau] = upper
 
         self.__V = V
+
+        print(self.__V)
 
         return self
 
@@ -82,6 +85,8 @@ class BlackScholesExplicitSolver():
 
         S = self.__generate_asset_grid()
         T = self.__generate_time_grid()
+
+        T = T[::-1]
 
         X, Y = np.meshgrid(T, S)
 
@@ -98,29 +103,17 @@ class BlackScholesExplicitSolver():
         fig.colorbar(surf, shrink=0.5, aspect=5)
         plt.show()
 
-
-    def __check_option_type(self):
-
-        if self.__option_type == 'call':
-            q = 1
-        elif self.__option_type == 'put':
-            q = -1
-        else:
-            raise ValueError("Invalid option type - Option type should either be 'call' or 'put'")
-
-        return q
-
     def __generate_asset_grid(self):
         return np.linspace(0, self.__S_max, self.__s_nodes + 1)
 
     def __generate_time_grid(self):
         return np.linspace(0, self.__expiry, self.__t_nodes + 1)
 
-    def __set_boundary_conditions(self, q, T, tau):
-        if q == 1:
+    def __set_boundary_conditions(self, T, tau):
+        if self.__option_type == 'call':
             lower_boundary = 0
             upper_boundary = self.__S_max - self.__K * np.exp(-self.__r * (self.__expiry - T[tau]))
-        else:
+        elif self.__option_type == 'put':
             lower_boundary = self.__K * np.exp(-self.__r * (self.__expiry - T[tau]))
             upper_boundary = 0
 
@@ -130,7 +123,7 @@ class BlackScholesExplicitSolver():
         return self.__V
 
 def main():
-    BlackScholesExplicitSolver('put', 300, 1, 0.2, 0.05, 100, 20).solve().plot()
+    BlackScholesExplicitSolver('call', 300, 1, 0.2, 0.05, 100, 100).solve().plot()
 
 if __name__ == "__main__":
     main()
