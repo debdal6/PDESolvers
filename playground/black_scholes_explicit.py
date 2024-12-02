@@ -110,6 +110,8 @@ class BlackScholesExplicitSolver:
         return np.linspace(0, self.__expiry, self.__t_nodes + 1)
 
     def __set_boundary_conditions(self, T, tau):
+        lower_boundary = None
+        upper_boundary = None
         if self.__option_type == 'call':
             lower_boundary = 0
             upper_boundary = self.__S_max - self.__K * np.exp(-self.__r * (self.__expiry - T[tau]))

@@ -47,11 +47,17 @@ class BlackScholesCNSolver:
         V = np.zeros((self.__s_nodes+1, self.__t_nodes+1))
 
         # setting terminal condition (for all values of S at time T)
-        V[:,-1] = np.maximum(S - self.__K, 0)
+        if self.__option_type == 'call':
+            V[:,-1] = np.maximum((S - self.__K), 0)
 
-        # setting boundary conditions (for all values of t at asset prices S=0 and S=Smax)
-        V[0, :] = 0
-        V[-1, :] = S[-1] - self.__K * np.exp(-self.__r * (self.__expiry - T))
+            # setting boundary conditions (for all values of t at asset prices S=0 and S=Smax)
+            V[0, :] = 0
+            V[-1, :] = S[-1] - self.__K * np.exp(-self.__r * (self.__expiry - T))
+
+        elif self.__option_type == 'put':
+            V[:,-1] = np.maximum((self.__K - S), 0)
+            V[0, :] = self.__K * np.exp(-self.__r * (self.__expiry - T))
+            V[-1, :] = 0
 
         for tau in reversed(range(self.__t_nodes)):
             # Construct the RHS vector for this time step
