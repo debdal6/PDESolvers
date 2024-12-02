@@ -58,8 +58,8 @@ class BlackScholesCNSolver:
             rhs_vector = rhs @ V[1:-1, tau + 1]
 
             # Apply boundary conditions to the RHS vector
-            rhs_vector[0] = alpha[1] * (V[0, tau + 1] + V[0, tau]) - alpha[0] * V[0, tau+1]
-            rhs_vector[-1] = gamma[self.__s_nodes-1] *(V[-1, tau+1] + V[-1, tau])
+            rhs_vector[0] += alpha[1] * (V[0, tau + 1] + V[0, tau])
+            rhs_vector[-1] += gamma[self.__s_nodes-1] *(V[-1, tau+1] + V[-1, tau])
 
             # Solve the linear system for interior points
             V[1:-1, tau] = spsolve(lhs, rhs_vector)
