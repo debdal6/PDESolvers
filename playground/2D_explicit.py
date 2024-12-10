@@ -10,7 +10,7 @@ yLength = 10
 maxTime = 1
 diffusivityConstant = 1
 numPointsSpace = 200
-numPointsTime = 2000
+numPointsTime = 200
 
 # Length Vector plotted on x-axis and y-axis
 xDomain = np.linspace(0, xLength, numPointsSpace)
