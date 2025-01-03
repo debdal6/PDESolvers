@@ -32,18 +32,21 @@ class GeometricBrownianMotion:
         """
 
         t = self.__generate_grid()
-        dt = t[1] - t[0]
+        dt = t[1] - t[0] # there should be a better way to do this
 
-
+        B = np.zeros((self.__sim, self.__time_steps))
         S = np.zeros((self.__sim, self.__time_steps))
 
         # for all simulations at t = 0
         S[:,0] = self.__S0
+        Z = np.random.normal(0, 1, (self.__sim, self.__time_steps))
 
         for i in range(self.__sim):
             for j in range (1, self.__time_steps):
-                # calculates stock price based on the previous value at j-1
-                S[i,j] = S[i, j-1] * np.exp((self.__mu - 0.5*self.__sigma**2)*dt + self.__sigma*np.sqrt(dt)*(np.random.normal(0, 1)))
+                # updates brownian motion
+                B[i,j] = B[i,j-1] + np.sqrt(dt) * Z[i,j-1]
+                # calculates stock price based on the incremental difference
+                S[i,j] = S[i, j-1] * np.exp((self.__mu - 0.5*self.__sigma**2)*dt + self.__sigma*(B[i, j] - B[i, j - 1]))
 
         self.__S = S
 
@@ -88,7 +91,7 @@ class GeometricBrownianMotion:
 
 
 def main():
-    GeometricBrownianMotion(100, 0.05, 0.03, 1, 365, 10).simulate_gbm().plot()
+    GeometricBrownianMotion(100, 0.05, 0.03, 1, 365, 100).simulate_gbm().plot()
 
 if __name__ == "__main__":
     main()
