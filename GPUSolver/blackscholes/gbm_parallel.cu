@@ -8,55 +8,30 @@
 
 #define SEED 12345
 
-class GBMParallel
+__global__ static void simulate_gbm(float* grid, float* brownian_path, float initial_stock_price, float mu, float sigma, float time, int time_steps, int num_of_simulations)
 {
-    private:
-        float initial_stock_price;
-        float mu;
-        float sigma;
-        float time;
-        int time_steps;
-        int num_of_simulations;
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-    public:
-        GBMParallel(float initial_stock_price, float mu, float sigma, float time, int time_steps, int num_of_simulations)
+    if (idx < num_of_simulations)
+    {
+
+        // initialising for random normal distribution
+        curandState state;
+        curand_init(SEED, idx, 0, &state);
+
+        float dt = time/static_cast<float>(time_steps);
+
+        brownian_path[idx * time_steps] = 0.0f;
+        grid[idx * time_steps] = initial_stock_price;
+
+        for (int i = 1; i < time_steps; i++)
         {
-            this->initial_stock_price = initial_stock_price;
-            this->mu = mu;
-            this->sigma = sigma;
-            this->time = time;
-            this->time_steps = time_steps;
-            this->num_of_simulations = num_of_simulations;
+            float Z = curand_normal(&state);
+            brownian_path[idx * time_steps + i] = brownian_path[idx * time_steps + i - 1] + std::sqrt(dt) * Z;
+            grid[idx * time_steps + i] = grid[idx * time_steps + i - 1] * expf((mu - 0.5f * powf(sigma, 2)) * dt + sigma * (brownian_path[idx * time_steps + i] - brownian_path[idx * time_steps + i - 1]));
         }
-
-        // sets cuda kernel to run on gpu
-        __global__ static void simulate_gbm(float* grid, float* brownian_path, float initial_stock_price, float mu, float sigma, float time, int time_steps, int num_of_simulations)
-        {
-            int idx = blockIdx.x * blockDim.x + threadIdx.x;
-
-            if (idx < num_of_simulations)
-            {
-
-                // initialising for random normal distribution
-                curandState state;
-                curand_init(SEED, idx, 0, &state);
-
-                float dt = time/static_cast<float>(time_steps);
-
-                brownian_path[idx * time_steps] = 0.0f;
-                grid[idx * time_steps] = initial_stock_price;
-
-                for (int i = 1; i < time_steps; i++)
-                {
-                    float Z = curand_normal(&state);
-                    brownian_path[idx * time_steps + i] = brownian_path[idx * time_steps + i - 1] + std::sqrt(dt) * Z;
-                    grid[idx * time_steps + i] = grid[idx * time_steps + i - 1] * expf((mu - 0.5f * powf(sigma, 2)) * dt + sigma * (brownian_path[idx * time_steps + i] - brownian_path[idx * time_steps + i - 1]));
-                }
-            }
-        }
-
-
-};
+    }
+}
 
 int main()
 {
@@ -85,13 +60,25 @@ int main()
     cudaMemcpy(dev_grid, host_grid, grid_size * sizeof(float), cudaMemcpyHostToDevice);
 
     // kernel invocation
-    GBMParallel::simulate_gbm<<<num_blocks, block_size>>>(dev_grid, bm, initial_stock_price, mu, sigma, time, time_steps, num_of_simulations);
+    simulate_gbm<<<num_blocks, block_size>>>(dev_grid, bm, initial_stock_price, mu, sigma, time, time_steps, num_of_simulations);
 
     // waits kernel to finish all processes
     cudaDeviceSynchronize();
 
     // copy updated gpu memory to host memory
     cudaMemcpy(host_grid, dev_grid,grid_size * sizeof(float), cudaMemcpyDeviceToHost);
+
+
+    // printing for debugging
+    for (int i = 0; i < 10; i++)
+    {
+        std::cout << "Simulation " << i << ": ";
+        for (int j = 0; j < time_steps; j++)
+        {
+            std::cout << host_grid[i * time_steps + j] << " ";
+        }
+        std::cout << std::endl;
+    }
 
     cudaFree(dev_grid);
     cudaFree(bm);
