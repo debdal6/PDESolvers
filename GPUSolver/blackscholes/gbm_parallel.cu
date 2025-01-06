@@ -6,6 +6,7 @@
 #include <iostream>
 #include <curand_kernel.h>
 #include <fstream>
+#include <chrono>
 
 #define SEED 12345
 
@@ -60,15 +61,24 @@ int main()
     // copy host memory to gpu memory
     cudaMemcpy(dev_grid, host_grid, grid_size * sizeof(float), cudaMemcpyHostToDevice);
 
+    auto start = std::chrono::high_resolution_clock::now();
+
     // kernel invocation
     simulate_gbm<<<num_blocks, block_size>>>(dev_grid, bm, initial_stock_price, mu, sigma, time, time_steps, num_of_simulations);
 
     // waits kernel to finish all processes
     cudaDeviceSynchronize();
 
+    auto end = std::chrono::high_resolution_clock::now();
+
     // copy updated gpu memory to host memory
     cudaMemcpy(host_grid, dev_grid,grid_size * sizeof(float), cudaMemcpyDeviceToHost);
 
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    std::cout << "Duration of GPU Performance: " << duration.count() << " microseconds" << std::endl;
+
+
+    // exporting results to csv
     std::ofstream output_file("/home/chemardes/simulation_results.csv");
 
     // Write header (optional)
