@@ -5,6 +5,7 @@
 #include <cmath>
 #include <iostream>
 #include <curand_kernel.h>
+#include <fstream>
 
 #define SEED 12345
 
@@ -68,17 +69,22 @@ int main()
     // copy updated gpu memory to host memory
     cudaMemcpy(host_grid, dev_grid,grid_size * sizeof(float), cudaMemcpyDeviceToHost);
 
+    std::ofstream output_file("/home/chemardes/simulation_results.csv");
 
-    // printing for debugging
-    for (int i = 0; i < 10; i++)
+    // Write header (optional)
+    output_file << "Simulation,Time Step,Stock Price\n";
+
+    // Output simulation results to CSV (only stock price)
+    for (int i = 0; i < num_of_simulations; i++)
     {
-        std::cout << "Simulation " << i << ": ";
         for (int j = 0; j < time_steps; j++)
         {
-            std::cout << host_grid[i * time_steps + j] << " ";
+            output_file << i << "," << j << "," << host_grid[i * time_steps + j] << "\n";
         }
-        std::cout << std::endl;
     }
+
+    // Close the file
+    output_file.close();
 
     cudaFree(dev_grid);
     cudaFree(bm);
