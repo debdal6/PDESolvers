@@ -38,20 +38,32 @@ class BlackScholesEquation:
     def set_option_type(self, type):
         self.__option_type = type
 
+    def set_S_max(self, asset_price):
+        self.__S_max = asset_price
+
+    def set_expiry(self, expiry):
+        self.__expiry = expiry
+
+    def set_sigma(self, sigma):
+        self.__sigma = sigma
+
+    def set_rate(self, rate):
+        self.__r = rate
+
     def set_strike_price(self, price):
         self.__K = price
-
-    def get_option_type(self):
-        return self.__option_type
-
-    def get_S_max(self):
-        return self.__S_max
 
     def get_s_nodes(self):
         return self.__s_nodes
 
     def get_t_nodes(self):
         return self.__t_nodes
+
+    def get_option_type(self):
+        return self.__option_type
+
+    def get_S_max(self):
+        return self.__S_max
 
     def get_sigma(self):
         return self.__sigma
