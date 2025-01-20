@@ -35,6 +35,8 @@ class BlackScholesExplicitSolver:
             V[:,-1] = np.maximum((S - self.equation.get_strike_price()), 0)
         elif self.equation.get_option_type() == 'put':
             V[:,-1] = np.maximum((self.equation.get_strike_price() - S), 0)
+        else:
+            raise ValueError("Invalid option type - please choose between call/put")
 
         for tau in reversed(range(self.equation.get_t_nodes())):
             for i in range(1, self.equation.get_s_nodes()):
