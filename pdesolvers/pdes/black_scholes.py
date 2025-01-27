@@ -2,7 +2,7 @@ import numpy as np
 
 class BlackScholesEquation:
 
-    def __init__(self, option_type, S_max, expiry, sigma, r, K, s_nodes, t_nodes = None):
+    def __init__(self, option_type, S_max, expiry, sigma, r, K, s_nodes=1, t_nodes=None):
         """
         Initialises the solver with the necessary parameters
 
@@ -32,47 +32,62 @@ class BlackScholesEquation:
     def generate_time_grid(self):
         return np.linspace(0, self.__expiry, self.__t_nodes+1)
 
-    def set_t_nodes(self, nodes):
-        self.__t_nodes = nodes
-
-    def set_option_type(self, type):
-        self.__option_type = type
-
-    def set_S_max(self, asset_price):
-        self.__S_max = asset_price
-
-    def set_expiry(self, expiry):
-        self.__expiry = expiry
-
-    def set_sigma(self, sigma):
-        self.__sigma = sigma
-
-    def set_rate(self, rate):
-        self.__r = rate
-
-    def set_strike_price(self, price):
-        self.__K = price
-
-    def get_s_nodes(self):
+    @property
+    def s_nodes(self):
         return self.__s_nodes
 
-    def get_t_nodes(self):
+    @property
+    def t_nodes(self):
         return self.__t_nodes
 
-    def get_option_type(self):
+    @property
+    def option_type(self):
         return self.__option_type
 
-    def get_S_max(self):
+    @property
+    def S_max(self):
         return self.__S_max
 
-    def get_sigma(self):
+    @property
+    def sigma(self):
         return self.__sigma
 
-    def get_expiry(self):
+    @property
+    def expiry(self):
         return self.__expiry
 
-    def get_rate(self):
+    @property
+    def rate(self):
         return self.__r
 
-    def get_strike_price(self):
+    @property
+    def strike_price(self):
         return self.__K
+
+    @t_nodes.setter
+    def t_nodes(self, nodes):
+        self.__t_nodes = nodes
+
+    @option_type.setter
+    def option_type(self, type):
+        self.__option_type = type
+
+    @S_max.setter
+    def S_max(self, asset_price):
+        self.__S_max = asset_price
+
+    @expiry.setter
+    def expiry(self, expiry):
+        self.__expiry = expiry
+
+    @sigma.setter
+    def sigma(self, sigma):
+        self.__sigma = sigma
+
+    @rate.setter
+    def rate(self, rate):
+        self.__r = rate
+
+    @strike_price.setter
+    def strike_price(self, price):
+        self.__K = price

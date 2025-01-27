@@ -3,9 +3,10 @@ from scipy.sparse.linalg import spsolve
 from scipy.sparse import csc_matrix
 
 import pdesolvers.solution as sol
+import pdesolvers.pdes.heat_1d as heat
 
 class Heat1DExplicitSolver:
-    def __init__(self, equation):
+    def __init__(self, equation: heat.HeatEquation):
         self.equation = equation
 
     def solve(self):
@@ -13,27 +14,27 @@ class Heat1DExplicitSolver:
         x = self.equation.generate_x_grid()
         dx = x[1] - x[0]
 
-        dt_max = 0.5 * (dx**2) / self.equation.get_k()
+        dt_max = 0.5 * (dx**2) / self.equation.k
         dt = 0.8 * dt_max
-        time_step = int(self.equation.get_time()/dt)
-        self.equation.set_t_nodes(time_step)
+        time_step = int(self.equation.time/dt)
+        self.equation.t_nodes = time_step
 
-        t = np.linspace(0, self.equation.get_time(), self.equation.get_t_nodes())
+        t = np.linspace(0, self.equation.time, self.equation.t_nodes)
 
-        u = np.zeros((time_step, self.equation.get_x_nodes()))
+        u = np.zeros((time_step, self.equation.x_nodes))
 
         u[0, :] = self.equation.get_initial_temp(x)
         u[:, 0] = self.equation.get_left_boundary(t)
         u[:, -1] = self.equation.get_right_boundary(t)
 
         for tau in range(0, time_step-1):
-            for i in range(1, self.equation.get_x_nodes() - 1):
-                u[tau+1,i] = u[tau, i] + (dt * self.equation.get_k() * (u[tau, i-1] - 2 * u[tau, i] + u[tau, i+1]) / dx**2)
+            for i in range(1, self.equation.x_nodes - 1):
+                u[tau+1,i] = u[tau, i] + (dt * self.equation.k * (u[tau, i-1] - 2 * u[tau, i] + u[tau, i+1]) / dx**2)
 
         return sol.Solution1D(u, x, t)
 
 class Heat1DCNSolver:
-    def __init__(self, equation):
+    def __init__(self, equation: heat.HeatEquation):
         self.equation = equation
 
     def solve(self):
@@ -44,24 +45,24 @@ class Heat1DCNSolver:
         dx = x[1] - x[0]
         dt = t[1] - t[0]
 
-        alpha = self.equation.get_k() * dt / (2 * dx**2)
+        alpha = self.equation.k * dt / (2 * dx**2)
         a = -alpha
         b = 1 + 2 * alpha
         c = -alpha
 
-        u = np.zeros((self.equation.get_t_nodes(), self.equation.get_x_nodes()))
+        u = np.zeros((self.equation.t_nodes, self.equation.x_nodes))
 
         u[0, :] = self.equation.get_initial_temp(x)
         u[:, 0] = self.equation.get_left_boundary(t)
         u[:, -1] = self.equation.get_right_boundary(t)
 
-        lhs = self.__build_tridiagonal_matrix(a, b, c, self.equation.get_x_nodes() - 2)
-        rhs = np.zeros(self.equation.get_x_nodes() - 2)
+        lhs = self.__build_tridiagonal_matrix(a, b, c, self.equation.x_nodes - 2)
+        rhs = np.zeros(self.equation.x_nodes - 2)
 
-        for tau in range(0, self.equation.get_t_nodes() - 1):
+        for tau in range(0, self.equation.t_nodes - 1):
             rhs[0] = alpha * (u[tau, 0] + u[tau+1, 0]) + (1 - 2 * alpha) * u[tau, 1] + alpha * u[tau, 2]
 
-            for i in range(1, self.equation.get_x_nodes() - 2):
+            for i in range(1, self.equation.x_nodes - 2):
                 rhs[i] = alpha * u[tau, i] + (1 - 2 * alpha) * u[tau, i+1] + alpha * u[tau, i+2]
 
             rhs[-1] = alpha * (u[tau, -1] + u[tau+1, -1]) + (1 - 2 * alpha) * u[tau, -2] + alpha * u[tau, -3]

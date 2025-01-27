@@ -27,6 +27,7 @@ class Solution1D:
         ax.set_zlabel('Temperature')
         ax.set_title('3D Surface Plot of 1D Heat Equation')
 
+        fig.colorbar(surf, shrink=0.5, aspect=5)
         plt.show()
 
     def get_result(self):
