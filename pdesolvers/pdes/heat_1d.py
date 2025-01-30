@@ -1,5 +1,4 @@
 import numpy as np
-from matplotlib import pyplot as plt
 
 class HeatEquation:
 
@@ -56,22 +55,24 @@ class HeatEquation:
     def generate_t_grid(self):
         return np.linspace(0, self.__time, self.__t_nodes)
 
-    def set_t_nodes(self, nodes):
-        self.__t_nodes = nodes
-
-    def get_length(self):
+    @property
+    def length(self):
         return self.__length
 
-    def get_time(self):
+    @property
+    def time(self):
         return self.__time
 
-    def get_x_nodes(self):
+    @property
+    def x_nodes(self):
         return self.__x_nodes
 
-    def get_t_nodes(self):
+    @property
+    def t_nodes(self):
         return self.__t_nodes
 
-    def get_k(self):
+    @property
+    def k(self):
         return self.__k
 
     def get_initial_temp(self, x):
@@ -82,3 +83,7 @@ class HeatEquation:
 
     def get_right_boundary(self, t):
         return self.__right_boundary_temp(t)
+
+    @t_nodes.setter
+    def t_nodes(self, nodes):
+        self.__t_nodes = nodes
