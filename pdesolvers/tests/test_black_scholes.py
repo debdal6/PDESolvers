@@ -4,10 +4,6 @@ import numpy as np
 import pdesolvers.pdes.black_scholes as bse
 import pdesolvers.solvers.black_scholes_solvers as solver
 
-class TestBlackScholesEquation:
-    def test_get_option_type(self):
-        assert False
-
 class TestBlackScholesSolvers:
 
     def setup_method(self):
