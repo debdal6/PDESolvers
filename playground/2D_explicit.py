@@ -8,10 +8,10 @@ from matplotlib.animation import FuncAnimation
 # Global Constants
 xLength = 50
 yLength = 50
-maxTime = 1
+maxTime = 2
 diffusivityConstant = 1
 numPointsSpace = 200
-numPointsTime = 60
+numPointsTime = 180
 
 # Length Vector plotted on x-axis and y-axis
 xDomain = np.linspace(0, xLength, numPointsSpace)
@@ -36,21 +36,21 @@ print(lambdaConstant)
 
 # lambda functions for initial condition and boundary condtions
 # 2 sin x sin 2y + 3 sin 4x sin 5y + t
-u0 = lambda x, y: 2 * np.sin(x) * np.sin(2*y) + 3 * np.sin(4*x) * np.sin(5*y)
-left = lambda t, y: 2 * np.sin(0) * np.sin(2*y) + 3 * np.sin(4*0) * np.sin(5*y) + t
-right = lambda t, y: 2 * np.sin(xLength) * np.sin(2*y) + 3 * np.sin(4*xLength) * np.sin(5*y) + t
-bottom = lambda t, x: 2 * np.sin(x) * np.sin(2*0) + 3 * np.sin(4*x) * np.sin(5*0) + t 
-top = lambda t, x: 2 * np.sin(x) * np.sin(2*yLength) + 3 * np.sin(4*x) * np.sin(5*yLength) + t
+u0 = lambda x, y: 2 * np.sin(x) + 3 * np.sin(5*y)
+left = lambda t, y: 2 * np.sin(0) + 3 * np.sin(5*y) + t
+right = lambda t, y: 2 * np.sin(xLength) + 3 * np.sin(5*y) + t
+bottom = lambda t, x: 2 * np.sin(x) +  np.sin(5*0) + t 
+top = lambda t, x: 2 * np.sin(x) + 3 * np.sin(5*yLength) + t
 
 
 # error assertion for intial & boundary conditions
 err1_u0 = np.abs(u0(0, 0) - left(0, 0))
 assert(err1_u0 < 1e-12)
-err2_u0 = np.abs(u0(0, yLength) - right(0, 0))
+err2_u0 = np.abs(u0(xLength, 0) - right(0, 0))
 assert(err2_u0 < 1e-12)
 err3_u0 = np.abs(u0(0, 0) - bottom(0, 0))
 assert(err3_u0 < 1e-12)
-err4_u0 = np.abs(u0(0, xLength) - top(0, 0))
+err4_u0 = np.abs(u0(0, yLength) - top(0, 0))
 assert(err4_u0 < 1e-12)
 
 def initMatrix():
