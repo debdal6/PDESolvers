@@ -1,3 +1,5 @@
+from operator import truediv
+
 from scipy import sparse
 from scipy.sparse.linalg import spsolve
 import numpy as np
@@ -15,14 +17,19 @@ class BlackScholesExplicitSolver:
         :return: the solver instance with the computed option values
         """
 
+        dt_max = 1/((self.equation.s_nodes**2) * (self.equation.sigma**2)) # cfl condition to ensure stability
+
         if self.equation.t_nodes is None:
-            dt_max = 1/((self.equation.s_nodes**2) * (self.equation.sigma()**2)) # cfl condition to ensure stability
             dt = 0.9 * dt_max
             self.equation.t_nodes = int(self.equation.expiry/dt)
             dt = self.equation.expiry / self.equation.t_nodes # to ensure that the expiration time is integer time steps away
         else:
             # possible fix - set a check to see that user-defined value is within cfl condition
             dt = self.equation.expiry / self.equation.t_nodes
+
+            if dt > dt_max:
+                raise ValueError("User-defined t nodes is too small and exceeds the CFL condition. Possible action: Increase number of t nodes for stability!")
+
 
         S = self.equation.generate_asset_grid()
         T = self.equation.generate_time_grid()
