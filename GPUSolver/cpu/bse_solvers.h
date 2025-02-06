@@ -26,7 +26,6 @@ public:
 
     // Public method
     void solve_bse_explicit(std::vector<std::vector<double>>& grid);
-    void solve_bse_cn(std::vector<std::vector<double>>& grid);
 
 private:
     // Private method

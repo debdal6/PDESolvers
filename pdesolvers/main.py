@@ -16,14 +16,14 @@ def main():
     # solver2 = pde.Heat1DExplicitSolver(equation1)
 
     # testing for bse
-    equation2 = pde.BlackScholesEquation('call', 300, 1, 0.2, 0.05, 100, 200, 10000)
+    equation2 = pde.BlackScholesEquation('call', 300, 1, 0.2, 0.05, 100, 10, 100)
 
     solver1 = pde.BlackScholesExplicitSolver(equation2)
     res1 = solver1.solve()
     # res2 = solver2.solve()
 
     print(res1.get_result())
-    res1.plot()
+    # res1.plot()
 
 if __name__ == "__main__":
     main()
