@@ -25,6 +25,7 @@ target_sources(mymain
 #        cpu/bse_solvers.h
 #        main.cpp
         gpu/bse_explicit_parallel.cu
+#        gpu/test.cu
 )
 
 set_target_properties(mymain
