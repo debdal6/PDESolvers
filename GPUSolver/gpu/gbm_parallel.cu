@@ -80,7 +80,7 @@ int main()
     cudaMemcpy(host_grid, dev_grid,grid_size * sizeof(float), cudaMemcpyDeviceToHost);
 
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    std::cout << "Duration of GPU Performance: " << duration.count() << " microseconds" << std::endl;
+    std::cout << "Duration of GPU Performance: " << duration.count() / 1e6 << "s" << std::endl;
 
 
     // exporting results to csv
