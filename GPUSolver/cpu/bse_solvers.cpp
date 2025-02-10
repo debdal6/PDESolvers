@@ -86,7 +86,7 @@ int main()
 {
     std::string option_type = "call";
     double s_max = 300.0;
-    int expiry = 1;
+    double expiry = 0.1;
     double sigma = 0.2;
     double rate = 0.05;
     double strike_price = 100;
@@ -105,43 +105,6 @@ int main()
 
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
-    std::cout << "Duration of CPU Performance: " << duration.count() << " microseconds" << std::endl;
-
-
-    // for (int i=0; i<=s_nodes; i++)
-    // {
-    //     for (int j=0; j<=t_nodes; j++)
-    //     {
-    //         std::cout << grid_explicit[i][j] << " ";
-    //     }
-    // }
-    //
-    // std::ofstream outfile("/home/chemardes/grid_bse_explicit.csv");
-    //
-    // for (int i = 0; i <= s_nodes; i++) {
-    //     for (int tau = 0; tau <= t_nodes; tau++) {
-    //         outfile << grid_explicit[i][tau] << ",";
-    //     }
-    //     outfile << std::endl;
-    // }
-
-    // std::ofstream output_file("/home/chemardes/bse_explicit_grid.csv");
-    //
-    // // Write header (optional)
-    // output_file << "s_index,t_index,option_price\n";
-    //
-    // // Output grid data
-    // double dS = s_max / s_nodes;
-    // double dt = static_cast<double>(expiry) / t_nodes;
-    // for (int i = 0; i <= s_nodes; i++) {
-    //     for (int j = 0; j <= t_nodes; j++) {
-    //         double s_value = i * dS;
-    //         double t_value = j * dt;
-    //         output_file << s_value << "," << t_value << "," << grid_explicit[i][j] << "\n";
-    //     }
-    // }
-    //
-    // // Close the file
-    // output_file.close();
+    std::cout << "Duration of CPU Performance: " << (double) duration.count() / 1e6 << "s" << std::endl;
 
 }

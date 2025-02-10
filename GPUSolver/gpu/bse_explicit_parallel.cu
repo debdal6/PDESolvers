@@ -4,7 +4,52 @@
 
 #include <iostream>
 #include <chrono>
-// #include "include/tensor.cuh" // how do i link GPUtils to PDESolvers???
+
+/**
+ * Define defaults
+ */
+#define DEFAULT_FPX double
+#define THREADS_PER_BLOCK 512
+#if (__cplusplus >= 201703L)  ///< if c++17 or above
+#define TEMPLATE_WITH_TYPE_T template<typename T = DEFAULT_FPX>
+#else
+#define TEMPLATE_WITH_TYPE_T template<typename T>
+#endif
+#if (__cplusplus >= 202002L)  ///< if c++20 or above
+#define TEMPLATE_CONSTRAINT_REQUIRES_FPX requires std::floating_point<T>
+#else
+#define TEMPLATE_CONSTRAINT_REQUIRES_FPX
+#endif
+
+/**
+ * Determines the number of blocks needed for a given number of tasks, n,
+ * and number of threads per block
+ *
+ * @param n problem size
+ * @param threads_per_block threads per block (defaults to THREADS_PER_BLOCK)
+ * @return number of blocks
+ */
+constexpr size_t numBlocks(size_t n, size_t threads_per_block = THREADS_PER_BLOCK) {
+    return (n / threads_per_block + (n % threads_per_block != 0));
+}
+
+/**
+ * Check for errors when calling GPU functions
+ */
+#define gpuErrChk(status) { gpuAssert((status), __FILE__, __LINE__); } while(false)
+
+TEMPLATE_WITH_TYPE_T inline void gpuAssert(T code, const char *file, int line, bool abort = true) {
+    if constexpr (std::is_same_v<T, cudaError_t>) {
+        if (code != cudaSuccess) {
+            std::cerr << "cuda error. String: " << cudaGetErrorString(code)
+                      << ", file: " << file << ", line: " << line << "\n";
+            if (abort) exit(code);
+        }
+    } else {
+        std::cerr << "Error: library status parser not implemented" << "\n";
+    }
+}
+
 
 enum class OptionType
 {
@@ -12,45 +57,64 @@ enum class OptionType
     Put
 };
 
-__global__ void set_terminal_condition(double* dev_grid, OptionType type, int s_nodes, int t_nodes, double dS,
+/**
+ * Sets the terminal condition of the Black-Scholes equation, based on option type
+ *
+ * @param dev_grid device memory grid storing option values
+ * @param s_nodes number of spatial nodes (asset prices)
+ * @param t_nodes number of time nodes
+ * @param dS grid spacing between asset prices
+ * @param strike_price strike price of the option
+ **/
+template<OptionType type>
+__global__ void set_terminal_condition(double* dev_grid, int s_nodes, int t_nodes, double dS,
                                        double strike_price)
 {
-    using enum OptionType;
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
-
     int index = (t_nodes) * (s_nodes + 1) + idx;
-
     if (idx < s_nodes + 1)
     {
-        if (type == Call)
+        double current_s = idx * dS;
+        if (type == OptionType::Call)
         {
-            double current_s = idx * dS;
             dev_grid[index] = max(current_s - strike_price, 0.0);
         }
-        else if (type == Put)
+        else if (type == OptionType::Put)
         {
-            double current_s = idx * dS;
             dev_grid[index] = max(strike_price - current_s, 0.0);
         }
     }
 }
 
-__global__ void set_boundary_conditions(double* dev_grid, int t_nodes, int s_nodes, OptionType type, double s_max,
+/**
+ * Sets the boundary conditions of the Black-Scholes equation
+ *
+ * @param dev_grid device memory grid storing option values
+ * @param t_nodes number of time nodes
+ * @param s_nodes number of spatial nodes (asset prices)
+ * @param s_max the maximum price of the underlying asset
+ * @param strike_price strike price of the option
+ * @param rate the risk-free interest rate
+ * @param expiry the time to expiry
+ * @param dt grid spacing between time nodes
+ *
+**/
+template<OptionType type>
+__global__ void set_boundary_conditions(double* dev_grid, int t_nodes, int s_nodes, double s_max,
                                         double strike_price, double rate, double expiry, double dt)
 {
-    using enum OptionType;
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
 
     if (idx < t_nodes)
     {
         double current_time_step = idx * dt;
-        if (type == Call)
+        if (type == OptionType::Call)
         {
             dev_grid[idx * (s_nodes + 1)] = 0.0;
             dev_grid[idx * (s_nodes + 1) + s_nodes] = s_max - strike_price * std::exp(
                 -rate * (expiry - current_time_step));
         }
-        else if (type == Put)
+        else if (type == OptionType::Put)
         {
             dev_grid[idx * (s_nodes + 1)] = strike_price * std::exp(-rate * (expiry - current_time_step));
             dev_grid[idx * (s_nodes + 1) + s_nodes] = 0.0;
@@ -58,6 +122,17 @@ __global__ void set_boundary_conditions(double* dev_grid, int t_nodes, int s_nod
     }
 }
 
+/**
+ * Solves the explicit method in parallel
+ *
+ * @param current points to the current time step
+ * @param prev points to the previous time step (to be computed)
+ * @param sigma the volatility of the underlying asset
+ * @param rate the risk-free interest rate
+ * @param s_nodes the number of spatial nodes (asset prices)
+ * @param dS grid spacing between spatial nodes
+ * @param dt grid spacing between time nodes
+**/
 __global__ void solve_explicit_parallel(const double* current, double* prev, double sigma, double rate, int s_nodes,
                                         double dS, double dt)
 {
@@ -77,9 +152,9 @@ __global__ void solve_explicit_parallel(const double* current, double* prev, dou
 
 int main()
 {
-    OptionType type = OptionType::Call;
+    constexpr OptionType type = OptionType::Call;
     double s_max = 300.0;
-    int expiry = 1;
+    double expiry = 0.1;
     double sigma = 0.2;
     double rate = 0.05;
     double strike_price = 100;
@@ -100,29 +175,30 @@ int main()
 
     // gpu memory allocation
     double* dev_grid;
-    cudaMalloc(&dev_grid, grid_size * sizeof(double));
-
-    cudaMemcpy(dev_grid, host_grid, grid_size * sizeof(double), cudaMemcpyHostToDevice);
+    gpuErrChk(cudaMalloc(&dev_grid, grid_size * sizeof(double)));
+    gpuErrChk(cudaMemcpy(dev_grid, host_grid, grid_size * sizeof(double), cudaMemcpyHostToDevice));
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    set_terminal_condition<<<10, 256>>>(dev_grid, type, s_nodes, t_nodes, dS, strike_price);
-    set_boundary_conditions<<<10, 256>>>(dev_grid, t_nodes, s_nodes, type, s_max, strike_price, rate, expiry, dt);
+    size_t num_threads = s_nodes + 1;
+    set_terminal_condition<type><<<numBlocks(num_threads), THREADS_PER_BLOCK>>>(dev_grid, s_nodes, t_nodes, dS, strike_price);
+    set_boundary_conditions<type><<<numBlocks(num_threads), THREADS_PER_BLOCK>>>(dev_grid, t_nodes, s_nodes, s_max, strike_price, rate, expiry, dt);
 
     // solving equation in parallel per time step
     for (int tau = t_nodes; tau > 0; tau--)
     {
         double* current_time_step = dev_grid + tau * (s_nodes + 1);
         double* prev_time_step = current_time_step - (s_nodes + 1);
-        solve_explicit_parallel<<<10, 256>>>(current_time_step, prev_time_step, sigma, rate, s_nodes, dS, dt);
+        solve_explicit_parallel<<<numBlocks(num_threads), THREADS_PER_BLOCK>>>(current_time_step, prev_time_step, sigma, rate, s_nodes, dS, dt);
     }
+
     auto end = std::chrono::high_resolution_clock::now();
 
     // copy back into grid
     cudaMemcpy(host_grid, dev_grid, grid_size * sizeof(double), cudaMemcpyDeviceToHost);
 
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    std::cout << "Duration of GPU Performance: " << duration.count() << " microseconds" << std::endl;
+    std::cout << "Duration of GPU Performance: " << (double) duration.count() / 1e6 << "s" << std::endl;
 
     cudaFree(dev_grid);
     free(host_grid);
