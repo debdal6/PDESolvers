@@ -48,7 +48,7 @@ tempMatrix[:, 0, :] = down(timeDomain, xDomain) # Bottom y boundary
 tempMatrix[:, -1, :] = up(timeDomain, xDomain) # Top y boundary
 
 # Initial conditions for entire 2D space at t=0
-tempMatrix[:, :, 0] = np.outer(u0(xDomain, yDomain), u0(xDomain, yDomain))
+tempMatrix[:, :, 0] = u0(xDomain, yDomain)
 
 # Calculate lambda constants for x and y (they're the same if dx = dy)
 lambdaConstant = (diffusivityConstant * timeStepSize) / spaceStepSize**2
