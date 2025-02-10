@@ -75,11 +75,11 @@ __global__ void set_terminal_condition(double* dev_grid, int s_nodes, int t_node
     if (idx < s_nodes + 1)
     {
         double current_s = idx * dS;
-        if (type == OptionType::Call)
+        if constexpr (type == OptionType::Call)
         {
             dev_grid[index] = max(current_s - strike_price, 0.0);
         }
-        else if (type == OptionType::Put)
+        else if constexpr (type == OptionType::Put)
         {
             dev_grid[index] = max(strike_price - current_s, 0.0);
         }
@@ -108,13 +108,13 @@ __global__ void set_boundary_conditions(double* dev_grid, int t_nodes, int s_nod
     if (idx < t_nodes)
     {
         double current_time_step = idx * dt;
-        if (type == OptionType::Call)
+        if constexpr (type == OptionType::Call)
         {
             dev_grid[idx * (s_nodes + 1)] = 0.0;
             dev_grid[idx * (s_nodes + 1) + s_nodes] = s_max - strike_price * std::exp(
                 -rate * (expiry - current_time_step));
         }
-        else if (type == OptionType::Put)
+        else if constexpr (type == OptionType::Put)
         {
             dev_grid[idx * (s_nodes + 1)] = strike_price * std::exp(-rate * (expiry - current_time_step));
             dev_grid[idx * (s_nodes + 1) + s_nodes] = 0.0;
