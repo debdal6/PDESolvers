@@ -42,7 +42,9 @@ inline void gpuAssert(T code, const char *file, int line, bool abort = true) {
     }
 }
 
-
+/**
+ * Option type (call or put)
+ */
 enum class OptionType {
     Call,
     Put
@@ -51,6 +53,8 @@ enum class OptionType {
 /**
  * Sets the terminal condition of the Black-Scholes equation, based on option type
  *
+ * @tparam type option type
+ * @tparam T data type (default: double)
  * @param dev_grid device memory grid storing option values
  * @param s_nodes number of spatial nodes (asset prices)
  * @param t_nodes number of time nodes
@@ -78,6 +82,8 @@ __global__ void set_terminal_condition(T *dev_grid,
 /**
  * Sets the boundary conditions of the Black-Scholes equation
  *
+ * @tparam type option type
+ * @tparam T data type (default: double)
  * @param dev_grid device memory grid storing option values
  * @param t_nodes number of time nodes
  * @param s_nodes number of spatial nodes (asset prices)
@@ -115,6 +121,7 @@ __global__ void set_boundary_conditions(T *dev_grid,
 /**
  * Solves the explicit method in parallel
  *
+ * @tparam T data type (default: double)
  * @param current points to the current time step
  * @param prev points to the previous time step (to be computed)
  * @param sigma the volatility of the underlying asset
@@ -137,20 +144,21 @@ __global__ void solve_explicit_parallel(const T *current,
         // calculating greeks
         T delta = (current[tid + 1] - current[tid - 1]) / (2 * dS);
         T gamma = (current[tid + 1] - 2 * current[tid] + current[tid - 1]) / pow(dS, 2);
-        T theta = -0.5 * pow(sigma, 2) * pow(current_s, 2) * gamma - rate * current_s * delta + rate * current[
-                tid];
+        T theta = -0.5 * pow(sigma, 2) * pow(current_s, 2) * gamma
+                  - rate * current_s * delta + rate * current[tid];
         prev[tid] = current[tid] - (theta * dt);
     }
 }
 
 /**
  * Solution u(x, t)
- * @tparam T
+ *
+ * @tparam T data type (default: double)
  */
 template<typename T = DEFAULT_FPX>
 class Solution {
 public:
-    T *m_d_data = nullptr;;
+    T *m_d_data = nullptr;
     size_t m_s_nodes;
     size_t m_t_nodes;
     double m_duration = 0;
@@ -168,20 +176,30 @@ public:
         }
     }
 
+    size_t grid_size() const {
+        return (m_t_nodes + 1) * (m_s_nodes + 1);
+    }
+
+    void download(T *host_data) const {
+        if (m_d_data) {
+            gpuErrChk(cudaMemcpy(host_data, m_d_data, grid_size() * sizeof(double), cudaMemcpyDeviceToHost));
+        }
+    }
+
     // Here we can include more methods (e.g., for printing, finding average value, etc)
 };
 
 /**
  *
- * @tparam type
- * @param s_max
- * @param expiry
- * @param sigma
- * @param rate
- * @param strike_price
- * @param s_nodes
- * @param t_nodes
- * @return device pointer where the solution is stored
+ * @tparam type data type (default: double)
+ * @param s_max the maximum price of the underlying asset
+ * @param expiry option expiry
+ * @param sigma the volatility of the underlying asset
+ * @param rate the risk-free interest rate
+ * @param strike_price strike price
+ * @param s_nodes number of nodes along S-axis
+ * @param t_nodes number of nodes along T-axis
+ * @return solution as instance of Solution
  */
 template<OptionType type, typename T = DEFAULT_FPX>
 Solution<T> solve_bse_explicit(T s_max,
@@ -244,9 +262,9 @@ int main() {
               << std::endl;
 
     /* Download solution */
-    size_t grid_size = (t_nodes + 1) * (s_nodes + 1);
-    double *host_grid = new double[grid_size];
-    gpuErrChk(cudaMemcpy(host_grid, solution.m_d_data, grid_size * sizeof(double), cudaMemcpyDeviceToHost));
+    double *host_grid = new double[solution.grid_size()];
+    solution.download(host_grid);
+    std::cout << "x = " << host_grid[1400] << std::endl;
     delete[] host_grid;
 }
 
