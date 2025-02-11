@@ -144,6 +144,34 @@ __global__ void solve_explicit_parallel(const T *current,
 }
 
 /**
+ * Solution u(x, t)
+ * @tparam T
+ */
+template<typename T = DEFAULT_FPX>
+class Solution {
+public:
+    T *m_d_data = nullptr;;
+    size_t m_s_nodes;
+    size_t m_t_nodes;
+    double m_duration = 0;
+
+    Solution(T *data, size_t s_nodes, size_t t_nodes) {
+        m_d_data = data;
+        m_s_nodes = s_nodes;
+        m_t_nodes = t_nodes;
+    };
+
+    ~Solution() {
+        if (m_d_data) {
+            gpuErrChk(cudaFree(m_d_data));
+            m_d_data = 0;
+        }
+    }
+
+    // Here we can include more methods (e.g., for printing, finding average value, etc)
+};
+
+/**
  *
  * @tparam type
  * @param s_max
@@ -156,13 +184,14 @@ __global__ void solve_explicit_parallel(const T *current,
  * @return device pointer where the solution is stored
  */
 template<OptionType type, typename T = DEFAULT_FPX>
-T *solve_bse_explicit(T s_max,
-                      T expiry,
-                      T sigma,
-                      T rate,
-                      T strike_price,
-                      int s_nodes,
-                      int t_nodes) {
+Solution<T> solve_bse_explicit(T s_max,
+                               T expiry,
+                               T sigma,
+                               T rate,
+                               T strike_price,
+                               int s_nodes,
+                               int t_nodes) {
+    auto start = std::chrono::high_resolution_clock::now();
     size_t grid_size = (t_nodes + 1) * (s_nodes + 1);
     T dt_max = 1 / (pow(s_nodes, 2) * pow(sigma, 2));
     T dS = s_max / s_nodes;
@@ -177,15 +206,20 @@ T *solve_bse_explicit(T s_max,
     size_t num_threads = s_nodes + 1;
     size_t nBlocks = numBlocks(num_threads);
     set_terminal_condition<type><<<nBlocks, THREADS_PER_BLOCK>>>(dev_grid, s_nodes, t_nodes, dS, strike_price);
-    set_boundary_conditions<type><<<nBlocks, THREADS_PER_BLOCK>>>(dev_grid, t_nodes, s_nodes, s_max, strike_price, rate, expiry, dt);
+    set_boundary_conditions<type><<<nBlocks, THREADS_PER_BLOCK>>>(dev_grid, t_nodes, s_nodes, s_max, strike_price, rate,
+                                                                  expiry, dt);
     // solving equation in parallel per time step
     for (int tau = t_nodes; tau > 0; tau--) {
         T *current_time_step = dev_grid + tau * (s_nodes + 1);
         T *prev_time_step = current_time_step - (s_nodes + 1);
-        solve_explicit_parallel<<<nBlocks, THREADS_PER_BLOCK>>>(current_time_step, prev_time_step, sigma, rate, s_nodes, dS, dt);
+        solve_explicit_parallel<<<nBlocks, THREADS_PER_BLOCK>>>(current_time_step, prev_time_step, sigma, rate, s_nodes,
+                                                                dS, dt);
     }
-
-    return dev_grid;
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    Solution<T> sol(dev_grid, s_nodes, t_nodes);
+    sol.m_duration = (double) duration.count() / 1e6;
+    return sol;
 }
 
 /* The definition of DEBUG_PDESOLVERS should be moved to CMakeLists.txt */
@@ -203,19 +237,16 @@ int main() {
     int t_nodes = 100000;
 
     /* GPU Computation and timing */
-    auto start = std::chrono::high_resolution_clock::now();
-    double *dev_grid = solve_bse_explicit<type>(s_max, expiry, sigma, rate, strike_price, s_nodes, t_nodes);
-    auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    Solution<double> solution = solve_bse_explicit<type>(s_max, expiry, sigma, rate, strike_price, s_nodes, t_nodes);
 
     /* Print duration*/
-    std::cout << "[GPU] Explicit method finished in " << std::setprecision(3) << (double) duration.count() / 1e6 << "s" << std::endl;
+    std::cout << "[GPU] Explicit method finished in " << std::setprecision(3) << solution.m_duration << "s"
+              << std::endl;
 
     /* Download solution */
     size_t grid_size = (t_nodes + 1) * (s_nodes + 1);
     double *host_grid = new double[grid_size];
-    gpuErrChk(cudaMemcpy(host_grid, dev_grid, grid_size * sizeof(double), cudaMemcpyDeviceToHost));
-    gpuErrChk(cudaFree(dev_grid));
+    gpuErrChk(cudaMemcpy(host_grid, solution.m_d_data, grid_size * sizeof(double), cudaMemcpyDeviceToHost));
     delete[] host_grid;
 }
 
