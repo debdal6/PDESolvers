@@ -1,5 +1,3 @@
-from operator import truediv
-
 from scipy import sparse
 from scipy.sparse.linalg import spsolve
 import numpy as np
@@ -85,9 +83,9 @@ class BlackScholesCNSolver:
         dS = S[1] - S[0]
         dT = T[1] - T[0]
 
-        alpha = 0.25 * dT * ((self.equation.sigma**2) * (S**2) - self.equation.rate*S)
-        beta = -dT * 0.5 * (self.equation.sigma**2 * (S**2) + self.equation.rate)
-        gamma = 0.25 * dT * (self.equation.sigma**2 * (S**2) + self.equation.rate * S)
+        alpha = 0.25 * dT * ((self.equation.sigma**2) * (S**2) / (dS**2) - self.equation.rate * S / dS)
+        beta = -dT * 0.5 * (self.equation.sigma**2 * (S**2) / (dS**2) + self.equation.rate)
+        gamma = 0.25 * dT * (self.equation.sigma**2 * (S**2) / (dS**2) + self.equation.rate * S / dS)
 
         lhs = sparse.diags([-alpha[2:], 1-beta[1:], -gamma[1:-1]], [-1, 0, 1], shape = (self.equation.s_nodes - 1, self.equation.s_nodes - 1), format='csr')
         rhs = sparse.diags([alpha[2:], 1+beta[1:], gamma[1:-1]], [-1, 0, 1], shape = (self.equation.s_nodes - 1, self.equation.s_nodes - 1) , format='csr')
