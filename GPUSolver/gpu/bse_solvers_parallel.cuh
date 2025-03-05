@@ -505,7 +505,7 @@ Solution<T> solve_bse_cn(T s_max,
         cusparseDestroyDnVec(vecY);
         cusparseSpSV_destroyDescr(spsvDescr);
         cudaFree(d_rhs_vector);
-        free(h_rhs_vector);
+        // free(h_rhs_vector);
     }
 
     auto end = std::chrono::high_resolution_clock::now();
@@ -515,9 +515,9 @@ Solution<T> solve_bse_cn(T s_max,
     sol.m_duration = (double) duration.count() / 1e6;
 
 
-    free(h_row_ptr);
-    free(h_col_idx);
-    free(h_val);
+    // free(h_row_ptr);
+    // free(h_col_idx);
+    // free(h_val);
 
     cudaFree(d_alpha);
     cudaFree(d_beta);
