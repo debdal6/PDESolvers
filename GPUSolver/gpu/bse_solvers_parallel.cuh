@@ -122,6 +122,19 @@ __global__ void set_boundary_conditions(T *dev_grid,
     }
 }
 
+/**
+ * Computes the coefficients for the tridiagonal matrix
+ *
+ * @tparam T data type (default: double)
+ * @param d_alpha the alpha coefficients
+ * @param d_beta the beta coefficients
+ * @param d_gamma the gamma coefficients
+ * @param sigma the volatility of the underlying asset
+ * @param rate the risk-free interest rate
+ * @param s_nodes the number of spatial nodes
+ * @param dS grid spacing between spatial nodes
+ * @param dt grid spacing between time nodes
+ */
 template <typename T = DEFAULT_FPX>
 __global__ static void compute_coefficients(T* d_alpha,
                                             T* d_beta,
@@ -144,6 +157,18 @@ __global__ static void compute_coefficients(T* d_alpha,
     }
 }
 
+/**
+ * Constructs the left-hand side tridiagonal matrix
+ *
+ * @tparam T data type (default: double)
+ * @param d_alpha_lhs the alpha coefficients of the lhs matrix
+ * @param d_beta_lhs the beta coefficients of the lhs matrix
+ * @param d_gamma_lhs the gamma coefficients of the lhs matrix
+ * @param d_alpha the alpha coefficients
+ * @param d_beta the beta coefficients
+ * @param d_gamma the gamma coefficients
+ * @param vector_size the size of the vector
+ */
 template <typename T = DEFAULT_FPX>
 __global__ static void construct_lhs(T* d_alpha_lhs, T* d_beta_lhs, T* d_gamma_lhs,
                                    T* d_alpha, T* d_beta, T* d_gamma, size_t vector_size)
@@ -160,6 +185,19 @@ __global__ static void construct_lhs(T* d_alpha_lhs, T* d_beta_lhs, T* d_gamma_l
     }
 }
 
+/**
+ * Constructs the right-hand side vector for the tridiagonal matrix
+ *
+ * @tparam T data type (default: double)
+ * @param rhs_vector the right-hand side vector
+ * @param current the current time step
+ * @param prev the previous time step
+ * @param d_alpha the alpha coefficients
+ * @param d_beta the beta coefficients
+ * @param d_gamma the gamma coefficients
+ * @param vector_size the size of the vector
+ * @param s_nodes the number of spatial nodes
+ */
 template <typename T = DEFAULT_FPX>
 __global__ static void construct_rhs(T* rhs_vector,
                                      const T* current,
@@ -264,6 +302,8 @@ public:
 
 /**
  *
+ * Solves the Black-Scholes equation using the explicit method in parallel
+ *
  * @tparam type data type (default: double)
  * @param s_max the maximum price of the underlying asset
  * @param expiry option expiry
@@ -316,6 +356,20 @@ Solution<T> solve_bse_explicit(T s_max,
     return sol;
 }
 
+/**
+ * Solves the Black-Scholes equation using the Crank-Nicolson method in parallel
+ *
+ * @tparam type option type
+ * @tparam T data type (default: double)
+ * @param s_max the maximum price of the underlying asset
+ * @param expiry option expiry
+ * @param sigma the volatility of the underlying asset
+ * @param rate the risk-free interest rate
+ * @param strike_price strike price
+ * @param s_nodes number of nodes along S-axis
+ * @param t_nodes number of nodes along T-axis
+ * @return solution as instance of Solution
+ */
 template<OptionType type, typename T = DEFAULT_FPX>
 Solution<T> solve_bse_cn(T s_max,
                                T expiry,
