@@ -7,8 +7,8 @@ int main() {
     double sigma = 0.2;
     double rate = 0.05;
     double strike_price = 100;
-    int s_nodes = 6;
-    int t_nodes = 10;
+    int s_nodes = 100;
+    int t_nodes = 1000;
 
     /* GPU Computation and timing */
     Solution<double> solution1 = solve_bse_explicit<type>(s_max, expiry, sigma, rate, strike_price, s_nodes, t_nodes);
@@ -42,19 +42,19 @@ int main() {
     //
     // std::cout << std::endl;
     //
-    for (int i=0; i < t_nodes + 1; i++)
-    {
-        for (int j=0; j < s_nodes + 1; j++)
-        {
-            std::cout << host_grid2[i * (s_nodes + 1) + j] << " ";
-        }
-        std::cout << std::endl;
-    }
+    // for (int i=0; i < t_nodes + 1; i++)
+    // {
+    //     for (int j=0; j < s_nodes + 1; j++)
+    //     {
+    //         std::cout << host_grid2[i * (s_nodes + 1) + j] << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
 
-    //std::cout << "x = " << host_grid1[1400] << std::endl;
-    //std::cout << "x = " << host_grid2[1400] << std::endl;
+    std::cout << "x = " << host_grid1[1400] << std::endl;
+    std::cout << "x = " << host_grid2[1400] << std::endl;
 
-    delete[] host_grid1;
+    // delete[] host_grid1;
     delete[] host_grid2;
 }
 

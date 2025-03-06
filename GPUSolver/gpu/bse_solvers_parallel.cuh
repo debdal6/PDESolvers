@@ -123,9 +123,9 @@ __global__ void set_boundary_conditions(T *dev_grid,
 }
 
 template <typename T = DEFAULT_FPX>
-__global__ static void compute_coefficients(T* alpha,
-                                            T* beta,
-                                            T* gamma,
+__global__ static void compute_coefficients(T* d_alpha,
+                                            T* d_beta,
+                                            T* d_gamma,
                                             T sigma,
                                             T rate,
                                             int s_nodes,
@@ -138,73 +138,25 @@ __global__ static void compute_coefficients(T* alpha,
         T current_s = tid * dS;
         T sigma_sq = pow(sigma, 2);
         T dS_sq_inv = 1 / pow(dS, 2);
-        alpha[tid] = 0.25 * dt * (sigma_sq * pow(current_s, 2) * dS_sq_inv - rate * current_s / dS);
-        beta[tid] = -dt * 0.5 * (sigma_sq * pow(current_s, 2) * dS_sq_inv + rate);
-        gamma[tid] = 0.25 * dt * (sigma_sq * pow(current_s, 2) * dS_sq_inv + rate * current_s / dS);
+        d_alpha[tid] = 0.25 * dt * (sigma_sq * pow(current_s, 2) * dS_sq_inv - rate * current_s / dS);
+        d_beta[tid] = -dt * 0.5 * (sigma_sq * pow(current_s, 2) * dS_sq_inv + rate);
+        d_gamma[tid] = 0.25 * dt * (sigma_sq * pow(current_s, 2) * dS_sq_inv + rate * current_s / dS);
     }
 }
 
 template <typename T = DEFAULT_FPX>
-__global__ static void generate_row_offset(int* row_ptr, size_t size, size_t nnz)
+__global__ static void construct_lhs(T* d_alpha_lhs, T* d_beta_lhs, T* d_gamma_lhs,
+                                   T* d_alpha, T* d_beta, T* d_gamma, size_t vector_size)
 {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (tid == 0) row_ptr[0] = 0;
-    if (tid >= 1 && tid < size - 1)
-    {
-        row_ptr[tid] = 3 * tid - 1;
-    }
-    if (tid == size - 1) row_ptr[tid] = nnz;
-}
-
-template <typename T = DEFAULT_FPX>
-__global__ static void generate_col_idx(int* d_col_idx, size_t vector_size, size_t nnz)
-{
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if (tid == 0)
-    {
-        d_col_idx[0] = 0;
-        d_col_idx[1] = 1;
+    if (tid < vector_size) {
+        d_alpha_lhs[tid] = -d_alpha[tid + 1];
+        d_beta_lhs[tid] = 1 - d_beta[tid + 1];
     }
 
-    if (tid >= 1 && tid < vector_size - 1)
-    {
-        d_col_idx[3 * tid - 1] = tid - 1;
-        d_col_idx[3 * tid] = tid;
-        d_col_idx[3 * tid + 1] = tid + 1;
-    }
-
-    if (tid == vector_size - 1)
-    {
-        d_col_idx[nnz - 2] = vector_size - 2;
-        d_col_idx[nnz - 1] = vector_size - 1;
-    }
-}
-
-template <typename T = DEFAULT_FPX>
-__global__ static void generate_values(T* d_val, T* d_alpha, T* d_beta, T* d_gamma, size_t vector_size, size_t nnz)
-{
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if (tid == 0)
-    {
-        d_val[0] = 1 - d_beta[1];
-        d_val[1] = -d_gamma[1];
-    }
-
-    if (tid >= 1 && tid < vector_size - 1)
-    {
-        int idx = tid + 1;
-        d_val[3 * tid - 1] = -d_alpha[idx];
-        d_val[3 * tid] = 1 - d_beta[idx];
-        d_val[3 * tid + 1] = -d_gamma[idx];
-    }
-
-    if (tid == vector_size - 1)
-    {
-        d_val[nnz - 2] = -d_alpha[vector_size];
-        d_val[nnz - 1] = 1 - d_beta[vector_size];
+    if (tid < vector_size - 1) {
+        d_gamma_lhs[tid] = -d_gamma[tid + 1];
     }
 }
 
@@ -333,9 +285,9 @@ Solution<T> solve_bse_explicit(T s_max,
     auto start = std::chrono::high_resolution_clock::now();
     size_t grid_size = (t_nodes + 1) * (s_nodes + 1);
     T dt_max = 1 / (pow(s_nodes, 2) * pow(sigma, 2));
-    T dS = s_max / s_nodes;
+    T dS = s_max / static_cast<T> (s_nodes);
     // calculates appropriate dt value (is it okay to put this here?)
-    T dt = static_cast<T>(expiry) / t_nodes;
+    T dt = expiry / static_cast<T> (t_nodes);
     if (dt > dt_max) throw std::runtime_error("t_nodes too small");
 
     // gpu memory allocation
@@ -383,9 +335,10 @@ Solution<T> solve_bse_cn(T s_max,
 
     size_t grid_size = (t_nodes + 1) * (s_nodes + 1);
     size_t vector_size = s_nodes - 1;
-    T dt = expiry / t_nodes;
-    T dS = s_max / s_nodes;
+    T dt = expiry / static_cast<T> (t_nodes);
+    T dS = s_max / static_cast<T> (s_nodes);
 
+    // memory allocation
     T* dev_grid;
     gpuErrChk(cudaMalloc(&dev_grid, grid_size * sizeof(T)));
 
@@ -394,140 +347,65 @@ Solution<T> solve_bse_cn(T s_max,
     gpuErrChk(cudaMalloc(&d_beta, (s_nodes + 1) * sizeof(T)));
     gpuErrChk(cudaMalloc(&d_gamma, (s_nodes + 1) * sizeof(T)));
 
+    T *d_alpha_lhs, *d_beta_lhs, * d_gamma_lhs;
+    gpuErrChk(cudaMalloc(&d_alpha_lhs, (vector_size) * sizeof(double)));
+    gpuErrChk(cudaMalloc(&d_beta_lhs, vector_size * sizeof(double)));
+    gpuErrChk(cudaMalloc(&d_gamma_lhs, (vector_size) * sizeof(double)));
+
+    T* d_rhs_vector;
+    gpuErrChk(cudaMalloc(&d_rhs_vector, vector_size * sizeof(T)));
+
+    // computes coefficients for tridiagonal matrix
     compute_coefficients<<<nBlocks_s, THREADS_PER_BLOCK>>>(d_alpha, d_beta, d_gamma, sigma, rate, (s_nodes + 1), dS, dt);
 
-    size_t nnz = 3 * vector_size - 2;
+    // prepares lhs tridiagonal matrix
+    construct_lhs<<<numBlocks(vector_size), THREADS_PER_BLOCK>>>(d_alpha_lhs, d_beta_lhs, d_gamma_lhs, d_alpha, d_beta, d_gamma, vector_size);
 
-    int *d_row_ptr, *d_col_idx;
-    T* d_val;
-    gpuErrChk(cudaMalloc(&d_row_ptr, (vector_size + 1) * sizeof(int)));
-    gpuErrChk(cudaMalloc(&d_col_idx, nnz * sizeof(int)));
-    gpuErrChk(cudaMalloc(&d_val, nnz * sizeof(T)));
-
-    // initialise row pointers
-    generate_row_offset<<<nBlocks_s, THREADS_PER_BLOCK>>>(d_row_ptr, vector_size + 1, nnz);
-    cudaDeviceSynchronize();
-
-    // initialise column indices
-    generate_col_idx<<<nBlocks_s, THREADS_PER_BLOCK>>>(d_col_idx, vector_size, nnz);
-    cudaDeviceSynchronize();
-
-    // initialise values
-    generate_values<<<numBlocks(nnz), THREADS_PER_BLOCK>>>(d_val, d_alpha, d_beta, d_gamma, vector_size, nnz);
-    cudaDeviceSynchronize();
-
-    int* h_row_ptr = (int*)malloc((vector_size + 1) * sizeof(int));
-    int* h_col_idx = (int*)malloc(nnz * sizeof(int));
-    T* h_val = (T*)malloc(nnz * sizeof(T));
-
-    cudaMemcpy(h_row_ptr, d_row_ptr, (vector_size + 1) * sizeof(int), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_col_idx, d_col_idx, nnz * sizeof(int), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_val, d_val, nnz * sizeof(double), cudaMemcpyDeviceToHost);
-
-    // create sparse matrix in csr format
-    cusparseSpMatDescr_t matA;
-    cusparseDnVecDescr_t vecX, vecY;
-    cusparseSpSVDescr_t spsvDescr;
+    // allocating buffer
     void* pBuffer = nullptr;
-    size_t bufferSize = 0;
-    double scalar = 1;
+    size_t bufferSize;
 
-    cusparseCreateCsr(&matA, vector_size, vector_size, nnz,
-                  d_row_ptr, d_col_idx, d_val,
-                  CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
-                  CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F);
+    cusparseDgtsv2_bufferSizeExt(handle, vector_size, 1, d_alpha_lhs, d_beta_lhs, d_gamma_lhs, nullptr, vector_size, &bufferSize);
+    gpuErrChk(cudaMalloc(&pBuffer, bufferSize));
 
     set_terminal_condition<type><<<nBlocks_s, THREADS_PER_BLOCK>>>(dev_grid, s_nodes, t_nodes, dS, strike_price);
-    cudaDeviceSynchronize();
 
     set_boundary_conditions<type><<<nBlocks_t, THREADS_PER_BLOCK>>>(dev_grid, t_nodes, s_nodes, s_max, strike_price, rate,
                                                                   expiry, dt);
-    cudaDeviceSynchronize();
-    
+
     for (int tau = t_nodes; tau > 0; tau--)
     {
         // points to the current time step
         T* current = dev_grid + tau * (s_nodes + 1);
         T* prev = current - (s_nodes + 1);
 
-        T* d_rhs_vector;
-        gpuErrChk(cudaMalloc(&d_rhs_vector, vector_size * sizeof(T)));
-
         // constructing RHS vector
         construct_rhs<<<numBlocks(vector_size), THREADS_PER_BLOCK>>>(d_rhs_vector, current, prev, d_alpha, d_beta, d_gamma,
                                                       vector_size, s_nodes);
 
-        T* h_rhs_vector = (T*)malloc((vector_size * sizeof(T)));
-        cudaMemcpy(h_rhs_vector, d_rhs_vector, (vector_size * sizeof(T)), cudaMemcpyDeviceToHost);
+        // solves for the next time step (Ax = b)
+        cusparseDgtsv2(handle, vector_size, 1, d_alpha_lhs, d_beta_lhs, d_gamma_lhs, d_rhs_vector, vector_size, pBuffer);
 
-            // for (int i=0; i<vector_size; i++)
-            // {
-            //     std::cout << h_rhs_vector[i] << " ";
-            // }
-            // std::cout << std::endl;
+        cudaMemcpy(prev + 1, d_rhs_vector, vector_size * sizeof(T), cudaMemcpyDeviceToDevice);
 
-        cudaDeviceSynchronize();
-
-        cusparseSpSV_createDescr(&spsvDescr);
-
-        cusparseCreateDnVec(&vecX, vector_size, d_rhs_vector, CUDA_R_64F);
-        cusparseCreateDnVec(&vecY, vector_size, prev + 1, CUDA_R_64F);
-
-        cusparseSpSV_bufferSize(
-            handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-            &scalar, matA, vecX, vecY, CUDA_R_64F,
-            CUSPARSE_SPSV_ALG_DEFAULT, spsvDescr, &bufferSize);
-
-        if (!pBuffer) gpuErrChk(cudaMalloc(&pBuffer, bufferSize));
-
-        cusparseSpSV_analysis(
-            handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-            &scalar, matA, vecX, vecY, CUDA_R_64F,
-            CUSPARSE_SPSV_ALG_DEFAULT, spsvDescr, pBuffer);
-
-        // this might be affecting the results (triangular solver - do i need to factorise the tridiagonal matrix?)
-        cusparseSpSV_solve(
-            handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-            &scalar, matA, vecX, vecY, CUDA_R_64F,
-            CUSPARSE_SPSV_ALG_DEFAULT, spsvDescr);
-
-        double* h_prev = (double*)malloc((s_nodes + 1) * sizeof(double));
-        cudaMemcpy(h_prev, prev, (s_nodes + 1) * sizeof(double), cudaMemcpyDeviceToHost);
-
-        // std::cout << "Values of prev cn: ";
-        // for (int i = 0; i <= s_nodes; ++i) {
-        //     std::cout << h_prev[i] << " ";
-        // }
-        // std::cout << std::endl;
-
-
-        cusparseDestroyDnVec(vecX);
-        cusparseDestroyDnVec(vecY);
-        cusparseSpSV_destroyDescr(spsvDescr);
-        cudaFree(d_rhs_vector);
-        // free(h_rhs_vector);
     }
 
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
+    cusparseDestroy(handle);
+
+    gpuErrChk(cudaFree(pBuffer));
+    gpuErrChk(cudaFree(d_rhs_vector));
+    gpuErrChk(cudaFree(d_gamma_lhs));
+    gpuErrChk(cudaFree(d_beta_lhs));
+    gpuErrChk(cudaFree(d_alpha_lhs));
+    gpuErrChk(cudaFree(d_gamma));
+    gpuErrChk(cudaFree(d_beta));
+    gpuErrChk(cudaFree(d_alpha));
+
     Solution<T> sol(dev_grid, s_nodes, t_nodes);
     sol.m_duration = (double) duration.count() / 1e6;
-
-
-    // free(h_row_ptr);
-    // free(h_col_idx);
-    // free(h_val);
-
-    cudaFree(d_alpha);
-    cudaFree(d_beta);
-    cudaFree(d_gamma);
-    cudaFree(d_row_ptr);
-    cudaFree(d_col_idx);
-    cudaFree(d_val);
-    cudaFree(pBuffer);
-
-    cusparseDestroy(handle);
 
     return sol;
 }

@@ -32,9 +32,6 @@ target_sources(CPU_runner_explicit
 target_sources(GPU_runner_explicit
         PRIVATE
 #        gpu/bse_explicit_parallel.cu
-#        playground/cn_playground.cu
-#        playground/sample.cu
-#        playground/bse_cn.cu
         gpu/bse_solvers_parallel.cuh
         main.cu
 )
