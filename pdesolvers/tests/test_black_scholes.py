@@ -3,6 +3,7 @@ import numpy as np
 
 import pdesolvers.pdes.black_scholes as bse
 import pdesolvers.solvers.black_scholes_solvers as solver
+import pdesolvers.utils.utility as utility
 
 class TestBlackScholesSolvers:
 
@@ -74,10 +75,19 @@ class TestBlackScholesSolvers:
 
         assert np.max(np.abs(diff)) < 1e-2
 
-        # X, Y = np.meshgrid(result1.t_grid, result1.s_grid)
-        #
-        # fig = plt.figure(figsize=(10,6))
-        # ax = fig.add_subplot(111, projection='3d')
-        # surf = ax.plot_surface(X, Y, diff, cmap='viridis')
-        # print(np.max(np.abs(diff)))
-        # plt.show()
+    def test_convergence_between_interpolated_data(self):
+        result1 = solver.BlackScholesExplicitSolver(self.equation).solve()
+        result2 = solver.BlackScholesCNSolver(self.equation).solve()
+        u1 = result1.get_result()
+        u2 = result2.get_result()
+
+        data1 = utility.RBFInterpolator(u1, 0.1, 0.03).interpolate(4,20)
+        data2 = utility.RBFInterpolator(u2,0.1, 0.03).interpolate(4,20)
+
+        diff = np.abs(data1 - data2)
+
+        assert diff < 1e-4
+
+
+
+

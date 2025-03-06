@@ -3,7 +3,7 @@ import numpy as np
 
 class RBFInterpolator:
 
-    def __init__(self, z, x, y, hx, hy):
+    def __init__(self, z, hx, hy):
         """
         Initializes the RBF Interpolator.
 
@@ -14,14 +14,12 @@ class RBFInterpolator:
         :param hy: Grid spacing in the y-direction.
         """
 
-        self._z = z
-        self._x = x
-        self._y = y
-        self._hx = hx
-        self._hy = hy
-        self._nx, self._ny = z.shape
+        self.__z = z
+        self.__hx = hx
+        self.__hy = hy
+        self.__nx, self._ny = z.shape
 
-    def _get_coordinates(self):
+    def __get_coordinates(self, x, y):
         """
         Determines the x and y coordinates of the bottom-left corner of the grid cell
 
@@ -29,15 +27,15 @@ class RBFInterpolator:
         """
 
         # gets the grid steps to x
-        i_minus_star = int(np.floor(self._x / self._hx))
-        if i_minus_star > self._nx - 1:
+        i_minus_star = int(np.floor(x / self.__hx))
+        if i_minus_star > self.__nx - 1:
             raise Exception("x is out of bounds")
 
         # final i index for interpolation
-        i_minus = i_minus_star if i_minus_star < self._nx - 1 else self._nx - 1
+        i_minus = i_minus_star if i_minus_star < self.__nx - 1 else self.__nx - 1
 
         # gets the grid steps to y
-        j_minus_star = int(np.floor(self._y / self._hy))
+        j_minus_star = int(np.floor(y / self.__hy))
         if j_minus_star > self._ny - 1:
             raise Exception("y is out of bounds")
 
@@ -45,12 +43,12 @@ class RBFInterpolator:
         j_minus = j_minus_star if j_minus_star < self._ny - 1 else self._ny - 1
 
         # computes the coordinates at the computed indices
-        x_minus = i_minus * self._hx
-        y_minus = j_minus * self._hy
+        x_minus = i_minus * self.__hx
+        y_minus = j_minus * self.__hy
 
         return x_minus, y_minus, i_minus, j_minus
 
-    def _euclidean_distances(self, x_minus, y_minus):
+    def __euclidean_distances(self, x_minus, y_minus, x, y):
         """
         Calculates Euclidean distances between (x,y) and the surrounding grid points in the unit cell
 
@@ -60,15 +58,15 @@ class RBFInterpolator:
                 [bottom left, top left, bottom right, top right]
         """
 
-        bottom_left = np.sqrt((x_minus - self._x) ** 2 + (y_minus - self._y) ** 2)
-        top_left = np.sqrt((x_minus - self._x) ** 2 + (y_minus + self._hy - self._y) ** 2)
-        bottom_right = np.sqrt((x_minus + self._hx - self._x) ** 2 + (y_minus - self._y) ** 2)
-        top_right = np.sqrt((x_minus + self._hx - self._x) ** 2 + (y_minus + self._hy - self._y) ** 2)
+        bottom_left = np.sqrt((x_minus - x) ** 2 + (y_minus - y) ** 2)
+        top_left = np.sqrt((x_minus - x) ** 2 + (y_minus + self.__hy - y) ** 2)
+        bottom_right = np.sqrt((x_minus + self.__hx - x) ** 2 + (y_minus - y) ** 2)
+        top_right = np.sqrt((x_minus + self.__hx - x) ** 2 + (y_minus + self.__hy - y) ** 2)
 
         return bottom_left, top_left, bottom_right, top_right
 
     @staticmethod
-    def _rbf(d, gamma):
+    def __rbf(d, gamma):
         """
         Computes the Radial Basis Function (RBF) for a given distance and gamma
 
@@ -78,27 +76,30 @@ class RBFInterpolator:
         """
         return np.exp(-gamma * d ** 2)
 
-    def rbf_interpolate(self):
+    def interpolate(self, x, y):
         """
         Performs the Radial Basis function (RBF) interpolation for the point (x,y)
 
         :return: the interpolated value at (x,y)
         """
 
-        x_minus, y_minus, i_minus, j_minus = self._get_coordinates()
+        x_minus, y_minus, i_minus, j_minus = self.__get_coordinates(x, y)
 
-        distances = self._euclidean_distances(x_minus, y_minus)
+        distances = self.__euclidean_distances(x_minus, y_minus, x, y)
 
-        h_diag_squared = self._hx ** 2 + self._hy ** 2
+        h_diag_squared = self.__hx ** 2 + self.__hy ** 2
         gamma = -np.log(0.005) / h_diag_squared
 
-        rbf_weights = [self._rbf(d, gamma) for d in distances]
+        rbf_weights = [self.__rbf(d, gamma) for d in distances]
 
         sum_rbf = np.sum(rbf_weights)
-        interpolated = rbf_weights[0] * self._z[i_minus, j_minus]
-        interpolated += rbf_weights[1] * self._z[i_minus, j_minus + 1]
-        interpolated += rbf_weights[2] * self._z[i_minus + 1, j_minus]
-        interpolated += rbf_weights[3] * self._z[i_minus + 1, j_minus + 1]
+        interpolated = rbf_weights[0] * self.__z[i_minus, j_minus]
+        interpolated += rbf_weights[1] * self.__z[i_minus, j_minus + 1]
+        interpolated += rbf_weights[2] * self.__z[i_minus + 1, j_minus]
+        interpolated += rbf_weights[3] * self.__z[i_minus + 1, j_minus + 1]
         interpolated /= sum_rbf
 
         return interpolated
+
+    def interpolate_all(self):
+        pass
