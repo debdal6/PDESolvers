@@ -14,7 +14,7 @@
 #endif
 //
 //
-///* ================================================================================================
+//* ================================================================================================
 // *  ERROR CHECKING
 // * ================================================================================================ */
 
@@ -91,11 +91,56 @@ public:
 
 
 /* ================================================================================================
+ *  DVector
+ * ================================================================================================ */
+TEMPLATE_WITH_TYPE_T
+class DVector {
+private:
+    size_t m_nulEl = 0;
+    T *m_d_data = nullptr;
+    cusparseDnVecDescr_t m_vecX;
+
+public:
+
+    DVector(size_t n) {
+        m_nulEl = n;
+        gpuErrChk(cudaMalloc((void **) &m_d_data, m_nulEl * sizeof(T)));
+        gpuErrChk(cusparseCreateDnVec(&m_vecX, m_nulEl, m_d_data, CUDA_R_32F));
+    }
+
+    DVector(std::vector<T> hostData) {
+        m_nulEl = hostData.size();
+        gpuErrChk(cudaMalloc((void **) &m_d_data, m_nulEl * sizeof(T)));
+        gpuErrChk(cudaMemcpy(m_d_data, hostData.data(), m_nulEl * sizeof(T), cudaMemcpyHostToDevice));
+        gpuErrChk(cusparseCreateDnVec(&m_vecX, m_nulEl, m_d_data, CUDA_R_32F));
+    }
+
+    ~DVector() {
+        if (m_d_data) {
+            gpuErrChk(cudaFree(m_d_data));
+            m_d_data = nullptr;
+            gpuErrChk(cusparseDestroyDnVec(m_vecX));
+        }
+
+        m_nulEl = 0;
+    }
+
+    cusparseDnVecDescr_t& asCusparseVector() {
+        return m_vecX;
+    }
+
+    void downloadTo(T* hostData) {
+        gpuErrChk(cudaMemcpy(hostData, m_d_data, m_nulEl * sizeof(float), cudaMemcpyDeviceToHost));
+    }
+
+};
+
+/* ================================================================================================
  *  DSparseCSRMatrix (CSR SPARSE MATRIX)
  * ================================================================================================ */
 TEMPLATE_WITH_TYPE_T
 class DSparseCSRMatrix {
-public:
+private:
     /* Metadata */
     size_t m_numRows = 0;  ///< Number of rows
     size_t m_numCols = 0;  ///< Number of columns
@@ -120,9 +165,9 @@ public:
                      size_t nNonzero) :
             m_numCols(nCols), m_numRows(nRows), m_numNonZeros(nNonzero) {
         /* allocate memory */
-        cudaMalloc((void **) &m_d_data, m_numNonZeros * sizeof(T));
-        cudaMalloc((void **) &m_d_csrOffsets, (m_numRows + 1) * sizeof(int));
-        cudaMalloc((void **) &m_d_csrColumns, m_numNonZeros * sizeof(int));
+        gpuErrChk(cudaMalloc((void **) &m_d_data, m_numNonZeros * sizeof(T)));
+        gpuErrChk(cudaMalloc((void **) &m_d_csrOffsets, (m_numRows + 1) * sizeof(int)));
+        gpuErrChk(cudaMalloc((void **) &m_d_csrColumns, m_numNonZeros * sizeof(int)));
         /* copy data to device */
         gpuErrChk(cudaMemcpy(m_d_data, data.data(), m_numNonZeros * sizeof(T), cudaMemcpyHostToDevice));
         gpuErrChk(cudaMemcpy(m_d_csrOffsets, csrOffsets.data(), (m_numRows + 1) * sizeof(int), cudaMemcpyHostToDevice));
@@ -136,21 +181,22 @@ public:
 
     ~DSparseCSRMatrix() {
         if (m_d_csrOffsets) {
-            cudaFree(m_d_csrOffsets);
+            gpuErrChk(cudaFree(m_d_csrOffsets));
             m_d_csrOffsets = nullptr;
         }
         if (m_d_csrColumns) {
-            cudaFree(m_d_csrColumns);
+            gpuErrChk(cudaFree(m_d_csrColumns));
             m_d_csrColumns = nullptr;
         }
         if (m_d_data) {
-            cudaFree(m_d_data);
+            gpuErrChk(cudaFree(m_d_data));
             m_d_data = nullptr;
         }
         if (m_buffer) {
-            cudaFree(m_buffer);
+            gpuErrChk(cudaFree(m_buffer));
             m_buffer = nullptr;
         }
+        if (m_numNonZeros) gpuErrChk(cusparseDestroySpMat(m_csrMat));
     }
 
     /**
@@ -164,23 +210,23 @@ public:
                cusparseDnVecDescr_t &x,
                T alpha = 1.,
                T beta = 0) {
-        gpuErrChk(cusparseSpMV_bufferSize(
-                Session::getInstance().cuSpraseHandle(),
-                CUSPARSE_OPERATION_NON_TRANSPOSE,
-                &alpha, m_csrMat, x, &beta, y, CUDA_R_32F,
-                CUSPARSE_SPMV_ALG_DEFAULT, &m_bufferSize));
         if (!m_buffer) {
+            gpuErrChk(cusparseSpMV_bufferSize(
+                    Session::getInstance().cuSpraseHandle(),
+                    CUSPARSE_OPERATION_NON_TRANSPOSE,
+                    &alpha, m_csrMat, x, &beta, y, CUDA_R_32F,
+                    CUSPARSE_SPMV_ALG_DEFAULT, &m_bufferSize));
             gpuErrChk(cudaMalloc((void **) &m_buffer, m_bufferSize));
-            std::cout << "m_bufferSize = " << m_bufferSize << std::endl;
         }
-        float a = 1, b = 0;
         gpuErrChk(cusparseSpMV(Session::getInstance().cuSpraseHandle(),
                                CUSPARSE_OPERATION_NON_TRANSPOSE,
-                               &a, m_csrMat, x, &b, y, CUDA_R_32F,
+                               &alpha, m_csrMat, x, &beta, y, CUDA_R_32F,
                                CUSPARSE_SPMV_ALG_DEFAULT, m_buffer));
     }
 
 };
+
+
 
 
 //* ================================================================================================
@@ -188,52 +234,34 @@ public:
 // * ================================================================================================ */
 
 int main(void) {
+
     // MATRIX A DATA (CSR)
-    const int A_num_rows = 4;
-    const int A_num_cols = 4;
-    const int A_nnz = 9;
-    std::vector<int> hA_csrOffsets{0, 3, 4, 7, 9};
-    std::vector<int> hA_columns{0, 2, 3, 1, 0, 2, 3, 1, 3};
-    std::vector<float>  hA_values{1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f};
-
-    // VECTORS
-    float hX[] = {1.0f, 2.0f, 3.0f, 4.0f};
-    float hY[] = {0.0f, 0.0f, 0.0f, 0.0f};
-    float hY_result[] = {19.0f, 8.0f, 51.0f, 52.0f};
-
-    // CSR object
-    DSparseCSRMatrix<float> aCSR(hA_values,
+    const int nr = 4;
+    const int nc = 4;
+    const int nnz = 9;
+    DSparseCSRMatrix<float> aCSR(std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f},
                                  std::vector<int>{0, 3, 4, 7, 9},
                                  std::vector<int>{0, 2, 3, 1, 0, 2, 3, 1, 3},
-                                 A_num_rows, A_num_cols, A_nnz);
+                                 nr, nc, nnz);
 
-    // VECTORS X and Y
-    float  *dX, *dY;
-    gpuErrChk(cudaMalloc((void **) &dX, A_num_cols * sizeof(float)));
-    gpuErrChk(cudaMalloc((void **) &dY, A_num_rows * sizeof(float)));
-    gpuErrChk(cudaMemcpy(dX, hX, A_num_cols * sizeof(float), cudaMemcpyHostToDevice));
-    gpuErrChk(cudaMemcpy(dY, hY, A_num_rows * sizeof(float), cudaMemcpyHostToDevice));
-    cusparseDnVecDescr_t vecX, vecY;
+    // VECTORS
+    DVector<float> x(std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f});
+    DVector<float> y(nr);
+    float hY_result[] = {19.0f, 8.0f, 51.0f, 52.0f};
 
-    // Create dense vectors X and Y
-    gpuErrChk(cusparseCreateDnVec(&vecX, A_num_cols, dX, CUDA_R_32F));
-    gpuErrChk(cusparseCreateDnVec(&vecY, A_num_rows, dY, CUDA_R_32F));
 
     // execute SpMV
-    aCSR.axpby(vecY, vecX);
-
-    // destroy matrix/vector descriptors
-    gpuErrChk(cusparseDestroyDnVec(vecX));
-    gpuErrChk(cusparseDestroyDnVec(vecY));
+    aCSR.axpby(y.asCusparseVector(), x.asCusparseVector(), 2.0, 0);
 
 
     //--------------------------------------------------------------------------
     // device result check
-    gpuErrChk(cudaMemcpy(hY, dY, A_num_rows * sizeof(float), cudaMemcpyDeviceToHost));
+    float hY[4];
+    y.downloadTo(hY);
     int correct = 1;
-    for (int i = 0; i < A_num_rows; i++) {
+    for (int i = 0; i < nr; i++) {
         std::cout << hY[i] << std::endl;
-        if (hY[i] != hY_result[i]) { // direct floating point comparison is not
+        if (hY[i] != 2 * hY_result[i]) { // direct floating point comparison is not
             correct = 0;             // reliable
             break;
         }
@@ -242,10 +270,7 @@ int main(void) {
         printf("spmv_csr_example test PASSED\n");
     else
         printf("spmv_csr_example test FAILED: wrong result\n");
-    //--------------------------------------------------------------------------
-    // device memory deallocation
-    gpuErrChk(cudaFree(dX));
-    gpuErrChk(cudaFree(dY));
+
 
     return EXIT_SUCCESS;
 }
