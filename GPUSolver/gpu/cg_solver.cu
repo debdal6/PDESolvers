@@ -146,7 +146,7 @@ public:
         return m_nulEl;
     }
 
-    void deviceCopyFrom(DVector<T>& other) {
+    void deviceCopyFrom(DVector<T> &other) {
         gpuErrChk(cudaMemcpy(m_d_data, other.m_d_data, m_nulEl * sizeof(T), cudaMemcpyDeviceToDevice));
     }
 
@@ -155,7 +155,7 @@ public:
         downloadTo(temp);
         out << "[DVector] " << m_nulEl << " elements " << std::endl;
         for (size_t i = 0; i < m_nulEl; i++) {
-                out << std::setw(10) << temp[i] << ", " << std::endl;
+            out << std::setw(10) << temp[i] << ", " << std::endl;
         }
         return out;
     }
@@ -163,7 +163,24 @@ public:
     friend std::ostream &operator<<(std::ostream &out, const DVector<T> &data) {
         return data.print(out);
     }
+
+    T norm() const;
+
 };
+
+template<>
+inline double DVector<double>::norm() const {
+    double the_norm;
+    gpuErrChk(cublasDnrm2(Session::getInstance().cuBlasHandle(), m_nulEl, m_d_data, 1, &the_norm));
+    return the_norm;
+}
+
+template<>
+inline float DVector<float>::norm() const {
+    float the_norm;
+    gpuErrChk(cublasSnrm2(Session::getInstance().cuBlasHandle(), m_nulEl, m_d_data, 1, &the_norm));
+    return the_norm;
+}
 
 /* ================================================================================================
  *  DSparseCSRMatrix (CSR SPARSE MATRIX)
@@ -268,19 +285,28 @@ public:
 TEMPLATE_WITH_TYPE_T
 class CGSolver {
 private:
-    DSparseCSRMatrix<T>& m_lhs;
+    DSparseCSRMatrix<T> &m_lhs;
     std::unique_ptr<DVector<T>> m_residual = nullptr;
+    std::unique_ptr<DVector<T>> m_search_direction = nullptr;
 public:
-    CGSolver(DSparseCSRMatrix<T>& lhsMatrix) : m_lhs(lhsMatrix) {
+    CGSolver(DSparseCSRMatrix<T> &lhsMatrix) : m_lhs(lhsMatrix) {
         size_t m = m_lhs.nRows();
         m_residual = std::make_unique<DVector<T>>(m);
+        m_search_direction = std::make_unique<DVector<T>>(m);
     }
 
-    void solve(DVector<T>& rhs, DVector<T>& x, T eps) {
+    void solve(DVector<T> &rhs, DVector<T> &x, T eps) {
         // We want to do r = b - Ax, i.e,.
         m_residual->deviceCopyFrom(rhs); // 1. r = b
         m_lhs.axpby(*m_residual, rhs, -1, 1);// 2. r = -1Ax + 1r
 
+        m_search_direction->deviceCopyFrom(*m_residual);
+        T norm_x = x.norm();
+        T old_resid_norm = m_residual->norm();
+        size_t max_iter = m_lhs.nCols();
+        for (size_t i = 0; i < max_iter; i++) {
+
+        }
     }
 
 };
