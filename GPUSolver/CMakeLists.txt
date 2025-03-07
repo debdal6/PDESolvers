@@ -14,10 +14,15 @@ set(CMAKE_CXX_FLAGS "-std=c++${CPPVERSION}")
 set(CMAKE_CUDA_FLAGS "-std=c++${CPPVERSION}")
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}; "-std=c++${CPPVERSION}")
 
+find_package(CUDAToolkit REQUIRED)
+
 enable_language(CUDA)
 add_executable(GPU_runner_explicit)
 add_executable(CPU_runner_explicit)
+add_executable(CGSolver)
 
+# SOURCE
+# ------------------------------------------
 target_sources(CPU_runner_explicit
         PRIVATE
         cpu/bse_solvers.cpp
@@ -27,13 +32,32 @@ target_sources(GPU_runner_explicit
         PRIVATE
         gpu/bse_explicit_parallel.cu
 )
+target_sources(CGSolver
+        PRIVATE
+        gpu/cg_solver.cu
+)
 
+# PROPERTIES
+# ------------------------------------------
 set_target_properties(GPU_runner_explicit
         PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON
 )
-
 set_target_properties(CPU_runner_explicit
         PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON
 )
+set_target_properties(CGSolver
+        PROPERTIES
+        CUDA_SEPARABLE_COMPILATION ON
+)
+
+
+# LINK LIBRARIES
+# ------------------------------------------
+target_link_libraries(CGSolver PRIVATE
+        CUDA::cusparse
+        CUDA::cublas
+        CUDA::cudart
+        )
+
