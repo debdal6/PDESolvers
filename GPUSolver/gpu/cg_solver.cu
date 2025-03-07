@@ -279,7 +279,7 @@ public:
     void solve(DVector<T>& rhs, DVector<T>& x, T eps) {
         // We want to do r = b - Ax, i.e,.
         m_residual->deviceCopyFrom(rhs); // 1. r = b
-        m_lhs.axpby(x, rhs, -1, 1);// 2. r = -1Ax + 1r
+        m_lhs.axpby(*m_residual, rhs, -1, 1);// 2. r = -1Ax + 1r
 
     }
 
@@ -306,10 +306,13 @@ int main(void) {
     DVector<float> x(std::vector<float>{1., 2., 3., 4.});
     DVector<float> b(std::vector<float>{38., 16., 102., 104.});
     std::cout << b;
+    std::cout << x;
 
     CGSolver<float> solver(aCSR);
     solver.solve(b, x, 0.01);
 
+    std::cout << b;
+    std::cout << x;
 
     return EXIT_SUCCESS;
 }
