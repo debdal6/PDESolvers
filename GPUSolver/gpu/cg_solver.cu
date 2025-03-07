@@ -2,7 +2,6 @@
 #include <vector>
 #include <cuda_runtime_api.h> // cudaMalloc, cudaMemcpy, etc.
 #include <cusparse.h>         // cusparseSpMV
-#include <stdio.h>            // printf
 #include <stdlib.h>           // EXIT_FAILURE
 #include <cublas_v2.h>
 #include <memory>             // smart pointers
@@ -126,11 +125,11 @@ public:
         m_nulEl = 0;
     }
 
-    cusparseDnVecDescr_t &asCusparseVector() {
+    const cusparseDnVecDescr_t &cusparseVector() const {
         return m_vecX;
     }
 
-    void downloadTo(T *hostData) {
+    void downloadTo(T *hostData) const {
         gpuErrChk(cudaMemcpy(hostData, m_d_data, m_nulEl * sizeof(T), cudaMemcpyDeviceToHost));
     }
 
@@ -142,11 +141,11 @@ public:
                              cudaMemcpyDeviceToHost));
     }
 
-    size_t numEl() {
+    size_t numEl() const {
         return m_nulEl;
     }
 
-    void deviceCopyFrom(DVector<T> &other) {
+    void deviceCopyFrom(DVector<T> &other) const {
         gpuErrChk(cudaMemcpy(m_d_data, other.m_d_data, m_nulEl * sizeof(T), cudaMemcpyDeviceToDevice));
     }
 
@@ -164,9 +163,51 @@ public:
         return data.print(out);
     }
 
+    T *raw() const {
+        return m_d_data;
+    }
+
     T norm() const;
 
+    T dot(const DVector<T> &other) const;
+
+    /**
+     * x += beta z
+     * @param z
+     * @param alpha
+     */
+    void axpy(DVector<T> &z,
+               const T alpha = 1.);
+
+    /**
+     * x *= alpha
+     * @param alpha
+     */
+    void scale(const T alpha = 1.);
+
 };
+
+template<>
+void DVector<double>::scale(const double alpha) {
+    gpuErrChk(cublasDscal(Session::getInstance().cuBlasHandle(), m_nulEl, &alpha, m_d_data, 1));
+}
+
+template<>
+void DVector<float>::scale(const float alpha) {
+    gpuErrChk(cublasSscal(Session::getInstance().cuBlasHandle(), m_nulEl, &alpha, m_d_data, 1));
+}
+
+template<>
+inline void DVector<double>::axpy(DVector<double> &z,
+                                   const double alpha) {
+    gpuErrChk(cublasDaxpy(Session::getInstance().cuBlasHandle(), m_nulEl, &alpha, z.m_d_data, 1, m_d_data, 1));
+}
+
+template<>
+inline void DVector<float>::axpy(DVector<float> &z,
+                                  const float alpha) {
+    gpuErrChk(cublasSaxpy(Session::getInstance().cuBlasHandle(), m_nulEl, &alpha, z.m_d_data, 1, m_d_data, 1));
+}
 
 template<>
 inline double DVector<double>::norm() const {
@@ -180,6 +221,29 @@ inline float DVector<float>::norm() const {
     float the_norm;
     gpuErrChk(cublasSnrm2(Session::getInstance().cuBlasHandle(), m_nulEl, m_d_data, 1, &the_norm));
     return the_norm;
+}
+
+// T dot(const DVector<T>& other) const;
+template<>
+inline double DVector<double>::dot(const DVector<double> &other) const {
+    size_t n = numEl();
+    double result;
+    gpuErrChk(cublasDdot(Session::getInstance().cuBlasHandle(), n,
+                         raw(), 1,
+                         other.raw(), 1,
+                         &result));
+    return result;
+}
+
+template<>
+inline float DVector<float>::dot(const DVector<float> &other) const {
+    size_t n = numEl();
+    float result;
+    gpuErrChk(cublasSdot(Session::getInstance().cuBlasHandle(), n,
+                         raw(), 1,
+                         other.raw(), 1,
+                         &result));
+    return result;
 }
 
 /* ================================================================================================
@@ -261,21 +325,21 @@ public:
             gpuErrChk(cusparseSpMV_bufferSize(
                     Session::getInstance().cuSpraseHandle(),
                     CUSPARSE_OPERATION_NON_TRANSPOSE,
-                    &alpha, m_csrMat, x.asCusparseVector(), &beta, y.asCusparseVector(), CUDA_R_32F,
+                    &alpha, m_csrMat, x.cusparseVector(), &beta, y.cusparseVector(), CUDA_R_32F,
                     CUSPARSE_SPMV_ALG_DEFAULT, &m_bufferSize));
             gpuErrChk(cudaMalloc((void **) &m_buffer, m_bufferSize));
         }
         gpuErrChk(cusparseSpMV(Session::getInstance().cuSpraseHandle(),
                                CUSPARSE_OPERATION_NON_TRANSPOSE,
-                               &alpha, m_csrMat, x.asCusparseVector(), &beta, y.asCusparseVector(), CUDA_R_32F,
+                               &alpha, m_csrMat, x.cusparseVector(), &beta, y.cusparseVector(), CUDA_R_32F,
                                CUSPARSE_SPMV_ALG_DEFAULT, m_buffer));
     }
 
-    size_t nRows() {
+    size_t nRows() const {
         return m_numRows;
     }
 
-    size_t nCols() {
+    size_t nCols() const {
         return m_numCols;
     }
 
@@ -288,11 +352,14 @@ private:
     DSparseCSRMatrix<T> &m_lhs;
     std::unique_ptr<DVector<T>> m_residual = nullptr;
     std::unique_ptr<DVector<T>> m_search_direction = nullptr;
+    std::unique_ptr<DVector<T>> m_a_search_direction = nullptr;
+    const int m_maxIters;
 public:
-    CGSolver(DSparseCSRMatrix<T> &lhsMatrix) : m_lhs(lhsMatrix) {
+    CGSolver(DSparseCSRMatrix<T> &lhsMatrix, size_t maxIters = 1000) : m_lhs(lhsMatrix), m_maxIters(maxIters) {
         size_t m = m_lhs.nRows();
         m_residual = std::make_unique<DVector<T>>(m);
         m_search_direction = std::make_unique<DVector<T>>(m);
+        m_a_search_direction = std::make_unique<DVector<T>>(m);
     }
 
     void solve(DVector<T> &rhs, DVector<T> &x, T eps) {
@@ -303,8 +370,28 @@ public:
         m_search_direction->deviceCopyFrom(*m_residual);
         T norm_x = x.norm();
         T old_resid_norm = m_residual->norm();
-        size_t max_iter = m_lhs.nCols();
-        for (size_t i = 0; i < max_iter; i++) {
+        for (size_t i = 0; i < 3; i++) {
+            // a_search_direction = A * search_direction
+            m_lhs.axpby(*m_a_search_direction, *m_search_direction);
+            // step_size = old_resid_norm^2 / (search_direction' * A_search_direction)
+            T num = old_resid_norm * old_resid_norm;
+            T den = m_search_direction->dot(*m_a_search_direction);
+            T step_size = num / den;
+            // x = x + step_size * search_direction
+            x.axpy(*m_search_direction, step_size);
+            // residual = residual - step_size * A_search_direction
+            m_residual->axpy(*m_a_search_direction, -step_size);
+            // new_resid_norm = norm(residual)
+            T new_resid_norm = m_residual->norm();
+
+            // search_direction = residual + (new_resid_norm / old_resid_norm)^2 * search_direction
+            T kappa = (new_resid_norm / old_resid_norm);
+            kappa *= kappa;
+            m_search_direction->scale(kappa);
+            m_search_direction->axpy(*m_residual, 1.);
+
+            old_resid_norm = new_resid_norm;
+            std::cout << new_resid_norm << "\n";
 
         }
     }
@@ -331,13 +418,9 @@ int main(void) {
     // VECTORS
     DVector<float> x(std::vector<float>{1., 2., 3., 4.});
     DVector<float> b(std::vector<float>{38., 16., 102., 104.});
-    std::cout << b;
-    std::cout << x;
 
     CGSolver<float> solver(aCSR);
     solver.solve(b, x, 0.01);
-
-    std::cout << b;
     std::cout << x;
 
     return EXIT_SUCCESS;
