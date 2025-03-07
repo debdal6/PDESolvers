@@ -177,7 +177,7 @@ public:
      * @param alpha
      */
     void axpy(DVector<T> &z,
-               const T alpha = 1.);
+              const T alpha = 1.);
 
     /**
      * x *= alpha
@@ -199,13 +199,13 @@ void DVector<float>::scale(const float alpha) {
 
 template<>
 inline void DVector<double>::axpy(DVector<double> &z,
-                                   const double alpha) {
+                                  const double alpha) {
     gpuErrChk(cublasDaxpy(Session::getInstance().cuBlasHandle(), m_nulEl, &alpha, z.m_d_data, 1, m_d_data, 1));
 }
 
 template<>
 inline void DVector<float>::axpy(DVector<float> &z,
-                                  const float alpha) {
+                                 const float alpha) {
     gpuErrChk(cublasSaxpy(Session::getInstance().cuBlasHandle(), m_nulEl, &alpha, z.m_d_data, 1, m_d_data, 1));
 }
 
@@ -365,34 +365,33 @@ public:
     void solve(DVector<T> &rhs, DVector<T> &x, T eps) {
         // We want to do r = b - Ax, i.e,.
         m_residual->deviceCopyFrom(rhs); // 1. r = b
-        m_lhs.axpby(*m_residual, rhs, -1, 1);// 2. r = -1Ax + 1r
+        std::cout << *m_residual << std::endl;
+        m_lhs.axpby(*m_residual, x, -1, 1);// 2. r = -1Ax + 1r
 
         m_search_direction->deviceCopyFrom(*m_residual);
         T norm_x = x.norm();
         T old_resid_norm = m_residual->norm();
-        for (size_t i = 0; i < 3; i++) {
+        for (size_t i = 0; i < 5; i++) {
             // a_search_direction = A * search_direction
-            m_lhs.axpby(*m_a_search_direction, *m_search_direction);
+            m_lhs.axpby(*m_a_search_direction, *m_search_direction, 1, 0);
             // step_size = old_resid_norm^2 / (search_direction' * A_search_direction)
             T num = old_resid_norm * old_resid_norm;
             T den = m_search_direction->dot(*m_a_search_direction);
             T step_size = num / den;
-            // x = x + step_size * search_direction
+            // x += step_size * search_direction
             x.axpy(*m_search_direction, step_size);
-            // residual = residual - step_size * A_search_direction
+            // residual += -step_size * A_search_direction
             m_residual->axpy(*m_a_search_direction, -step_size);
             // new_resid_norm = norm(residual)
             T new_resid_norm = m_residual->norm();
 
             // search_direction = residual + (new_resid_norm / old_resid_norm)^2 * search_direction
-            T kappa = (new_resid_norm / old_resid_norm);
+            T kappa = new_resid_norm / old_resid_norm;
             kappa *= kappa;
             m_search_direction->scale(kappa);
             m_search_direction->axpy(*m_residual, 1.);
 
             old_resid_norm = new_resid_norm;
-            std::cout << new_resid_norm << "\n";
-
         }
     }
 
@@ -416,12 +415,13 @@ int main(void) {
                                  nr, nc, nnz);
 
     // VECTORS
-    DVector<float> x(std::vector<float>{1., 2., 3., 4.});
-    DVector<float> b(std::vector<float>{38., 16., 102., 104.});
+    DVector<float> x(std::vector<float>{1., 1., 3., 4.});
+    DVector<float> b(std::vector<float>{19., 8., 51., 52.});
 
     CGSolver<float> solver(aCSR);
     solver.solve(b, x, 0.01);
     std::cout << x;
+
 
     return EXIT_SUCCESS;
 }
