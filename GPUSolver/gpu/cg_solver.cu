@@ -154,7 +154,7 @@ public:
         downloadTo(temp);
         out << "[DVector] " << m_nulEl << " elements " << std::endl;
         for (size_t i = 0; i < m_nulEl; i++) {
-            out << std::setw(10) << temp[i] << ", " << std::endl;
+            out << std::setw(10) << temp[i] << std::endl;
         }
         return out;
     }
@@ -353,44 +353,35 @@ private:
     std::unique_ptr<DVector<T>> m_residual = nullptr;
     std::unique_ptr<DVector<T>> m_search_direction = nullptr;
     std::unique_ptr<DVector<T>> m_a_search_direction = nullptr;
-    const int m_maxIters;
+    size_t m_maxIters;
+
 public:
-    CGSolver(DSparseCSRMatrix<T> &lhsMatrix, size_t maxIters = 1000) : m_lhs(lhsMatrix), m_maxIters(maxIters) {
+    CGSolver(DSparseCSRMatrix<T> &lhsMatrix, size_t maxIters = 0) : m_lhs(lhsMatrix), m_maxIters(maxIters) {
         size_t m = m_lhs.nRows();
+        if (maxIters == 0) m_maxIters = m;
         m_residual = std::make_unique<DVector<T>>(m);
         m_search_direction = std::make_unique<DVector<T>>(m);
         m_a_search_direction = std::make_unique<DVector<T>>(m);
     }
 
     void solve(DVector<T> &rhs, DVector<T> &x, T eps) {
-        // We want to do r = b - Ax, i.e,.
-        m_residual->deviceCopyFrom(rhs); // 1. r = b
-        std::cout << *m_residual << std::endl;
-        m_lhs.axpby(*m_residual, x, -1, 1);// 2. r = -1Ax + 1r
-
+        m_residual->deviceCopyFrom(rhs);
+        m_lhs.axpby(*m_residual, x, -1, 1);
         m_search_direction->deviceCopyFrom(*m_residual);
         T norm_x = x.norm();
         T old_resid_norm = m_residual->norm();
-        for (size_t i = 0; i < 5; i++) {
-            // a_search_direction = A * search_direction
+        for (size_t i = 0; i < m_maxIters; i++) {
             m_lhs.axpby(*m_a_search_direction, *m_search_direction, 1, 0);
-            // step_size = old_resid_norm^2 / (search_direction' * A_search_direction)
             T num = old_resid_norm * old_resid_norm;
             T den = m_search_direction->dot(*m_a_search_direction);
             T step_size = num / den;
-            // x += step_size * search_direction
             x.axpy(*m_search_direction, step_size);
-            // residual += -step_size * A_search_direction
             m_residual->axpy(*m_a_search_direction, -step_size);
-            // new_resid_norm = norm(residual)
             T new_resid_norm = m_residual->norm();
-
-            // search_direction = residual + (new_resid_norm / old_resid_norm)^2 * search_direction
             T kappa = new_resid_norm / old_resid_norm;
             kappa *= kappa;
             m_search_direction->scale(kappa);
-            m_search_direction->axpy(*m_residual, 1.);
-
+            m_search_direction->axpy(*m_residual);
             old_resid_norm = new_resid_norm;
         }
     }
@@ -406,22 +397,20 @@ public:
 int main(void) {
 
     // MATRIX A DATA (CSR)
-    const int nr = 4;
-    const int nc = 4;
-    const int nnz = 9;
+    const int nr = 4, nc = 4, nnz = 9;
     DSparseCSRMatrix<float> aCSR(std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f},
                                  std::vector<int>{0, 3, 4, 7, 9},
                                  std::vector<int>{0, 2, 3, 1, 0, 2, 3, 1, 3},
                                  nr, nc, nnz);
 
     // VECTORS
-    DVector<float> x(std::vector<float>{1., 1., 3., 4.});
+    DVector<float> x(std::vector<float>{1.1, 2.1, 3.1, 4.5});
     DVector<float> b(std::vector<float>{19., 8., 51., 52.});
 
+    /* Call Conjugate Gradient Solver (unlikely to converge!) */
     CGSolver<float> solver(aCSR);
     solver.solve(b, x, 0.01);
     std::cout << x;
-
 
     return EXIT_SUCCESS;
 }
