@@ -5,6 +5,8 @@
 #include <stdio.h>            // printf
 #include <stdlib.h>           // EXIT_FAILURE
 #include <cublas_v2.h>
+#include <memory>             // smart pointers
+
 
 #define DEFAULT_FPX double
 #if (__cplusplus >= 201703L)  ///< if c++17 or above
@@ -12,8 +14,8 @@
 #else
 #define TEMPLATE_WITH_TYPE_T template<typename T>
 #endif
-//
-//
+
+
 //* ================================================================================================
 // *  ERROR CHECKING
 // * ================================================================================================ */
@@ -121,16 +123,23 @@ public:
             m_d_data = nullptr;
             gpuErrChk(cusparseDestroyDnVec(m_vecX));
         }
-
         m_nulEl = 0;
     }
 
-    cusparseDnVecDescr_t& asCusparseVector() {
+    cusparseDnVecDescr_t &asCusparseVector() {
         return m_vecX;
     }
 
-    void downloadTo(T* hostData) {
+    void downloadTo(T *hostData) {
         gpuErrChk(cudaMemcpy(hostData, m_d_data, m_nulEl * sizeof(float), cudaMemcpyDeviceToHost));
+    }
+
+    size_t numEl() {
+        return m_nulEl;
+    }
+
+    void deviceCopyFrom(DVector<T>& other) {
+        gpuErrChk(cudaMemcpy(m_d_data, other.m_d_data, m_nulEl * sizeof(float), cudaMemcpyDeviceToDevice));
     }
 
 };
@@ -206,26 +215,54 @@ public:
      * @param alpha scalar
      * @param beta scalar
      */
-    void axpby(cusparseDnVecDescr_t &y,
-               cusparseDnVecDescr_t &x,
+    void axpby(DVector<T> &y,
+               DVector<T> &x,
                T alpha = 1.,
                T beta = 0) {
         if (!m_buffer) {
             gpuErrChk(cusparseSpMV_bufferSize(
                     Session::getInstance().cuSpraseHandle(),
                     CUSPARSE_OPERATION_NON_TRANSPOSE,
-                    &alpha, m_csrMat, x, &beta, y, CUDA_R_32F,
+                    &alpha, m_csrMat, x.asCusparseVector(), &beta, y.asCusparseVector(), CUDA_R_32F,
                     CUSPARSE_SPMV_ALG_DEFAULT, &m_bufferSize));
             gpuErrChk(cudaMalloc((void **) &m_buffer, m_bufferSize));
         }
         gpuErrChk(cusparseSpMV(Session::getInstance().cuSpraseHandle(),
                                CUSPARSE_OPERATION_NON_TRANSPOSE,
-                               &alpha, m_csrMat, x, &beta, y, CUDA_R_32F,
+                               &alpha, m_csrMat, x.asCusparseVector(), &beta, y.asCusparseVector(), CUDA_R_32F,
                                CUSPARSE_SPMV_ALG_DEFAULT, m_buffer));
+    }
+
+    size_t nRows() {
+        return m_numRows;
+    }
+
+    size_t nCols() {
+        return m_numCols;
     }
 
 };
 
+
+TEMPLATE_WITH_TYPE_T
+class CGSolver {
+private:
+    DSparseCSRMatrix<T>& m_lhs;
+    std::unique_ptr<DVector<T>> m_residual = nullptr;
+public:
+    CGSolver(DSparseCSRMatrix<T>& lhsMatrix) : m_lhs(lhsMatrix) {
+        size_t m = m_lhs.nRows();
+        m_residual = std::make_unique<DVector<T>>(m);
+    }
+
+    void solve(DVector<T> rhs, DVector<T> x, T eps) {
+        // We want to do r = b - Ax, i.e,.
+        m_residual->deviceCopyFrom(rhs); // 1. r = b
+        m_lhs.axpby(x, rhs, -1, 1);// 2. r = -1Ax + 1r
+
+    }
+
+};
 
 
 
@@ -249,10 +286,8 @@ int main(void) {
     DVector<float> y(nr);
     float hY_result[] = {19.0f, 8.0f, 51.0f, 52.0f};
 
-
     // execute SpMV
-    aCSR.axpby(y.asCusparseVector(), x.asCusparseVector(), 2.0, 0);
-
+    aCSR.axpby(y, x, 2.0, 0);
 
     //--------------------------------------------------------------------------
     // device result check
