@@ -6,7 +6,7 @@
 #include <stdlib.h>           // EXIT_FAILURE
 #include <cublas_v2.h>
 #include <memory>             // smart pointers
-
+#include <iomanip>            // for std::setw
 
 #define DEFAULT_FPX double
 #if (__cplusplus >= 201703L)  ///< if c++17 or above
@@ -131,7 +131,15 @@ public:
     }
 
     void downloadTo(T *hostData) {
-        gpuErrChk(cudaMemcpy(hostData, m_d_data, m_nulEl * sizeof(float), cudaMemcpyDeviceToHost));
+        gpuErrChk(cudaMemcpy(hostData, m_d_data, m_nulEl * sizeof(T), cudaMemcpyDeviceToHost));
+    }
+
+    void downloadTo(std::vector<T> &vec) const {
+        vec.resize(m_nulEl);
+        gpuErrChk(cudaMemcpy(vec.data(),
+                             m_d_data,
+                             m_nulEl * sizeof(T),
+                             cudaMemcpyDeviceToHost));
     }
 
     size_t numEl() {
@@ -139,9 +147,22 @@ public:
     }
 
     void deviceCopyFrom(DVector<T>& other) {
-        gpuErrChk(cudaMemcpy(m_d_data, other.m_d_data, m_nulEl * sizeof(float), cudaMemcpyDeviceToDevice));
+        gpuErrChk(cudaMemcpy(m_d_data, other.m_d_data, m_nulEl * sizeof(T), cudaMemcpyDeviceToDevice));
     }
 
+    std::ostream &print(std::ostream &out) const {
+        std::vector<T> temp;
+        downloadTo(temp);
+        out << "[DVector] " << m_nulEl << " elements " << std::endl;
+        for (size_t i = 0; i < m_nulEl; i++) {
+                out << std::setw(10) << temp[i] << ", " << std::endl;
+        }
+        return out;
+    }
+
+    friend std::ostream &operator<<(std::ostream &out, const DVector<T> &data) {
+        return data.print(out);
+    }
 };
 
 /* ================================================================================================
@@ -255,7 +276,7 @@ public:
         m_residual = std::make_unique<DVector<T>>(m);
     }
 
-    void solve(DVector<T> rhs, DVector<T> x, T eps) {
+    void solve(DVector<T>& rhs, DVector<T>& x, T eps) {
         // We want to do r = b - Ax, i.e,.
         m_residual->deviceCopyFrom(rhs); // 1. r = b
         m_lhs.axpby(x, rhs, -1, 1);// 2. r = -1Ax + 1r
@@ -282,29 +303,12 @@ int main(void) {
                                  nr, nc, nnz);
 
     // VECTORS
-    DVector<float> x(std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f});
-    DVector<float> y(nr);
-    float hY_result[] = {19.0f, 8.0f, 51.0f, 52.0f};
+    DVector<float> x(std::vector<float>{1., 2., 3., 4.});
+    DVector<float> b(std::vector<float>{38., 16., 102., 104.});
+    std::cout << b;
 
-    // execute SpMV
-    aCSR.axpby(y, x, 2.0, 0);
-
-    //--------------------------------------------------------------------------
-    // device result check
-    float hY[4];
-    y.downloadTo(hY);
-    int correct = 1;
-    for (int i = 0; i < nr; i++) {
-        std::cout << hY[i] << std::endl;
-        if (hY[i] != 2 * hY_result[i]) { // direct floating point comparison is not
-            correct = 0;             // reliable
-            break;
-        }
-    }
-    if (correct)
-        printf("spmv_csr_example test PASSED\n");
-    else
-        printf("spmv_csr_example test FAILED: wrong result\n");
+    CGSolver<float> solver(aCSR);
+    solver.solve(b, x, 0.01);
 
 
     return EXIT_SUCCESS;
