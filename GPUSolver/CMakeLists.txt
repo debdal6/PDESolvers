@@ -16,32 +16,33 @@ set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}; "-std=c++${CPPVERSION}")
 find_package(CUDAToolkit REQUIRED)
 
 enable_language(CUDA)
-add_executable(GPU_runner_explicit)
-add_executable(CPU_runner_explicit)
+add_executable(GPU_runner)
+add_executable(CPU_runner)
 
-target_link_libraries(GPU_runner_explicit PRIVATE
+target_link_libraries(GPU_runner PRIVATE
         CUDA::cusparse
         CUDA::cudart
+        CUDA::cublas
 )
 
-target_sources(CPU_runner_explicit
+target_sources(CPU_runner
         PRIVATE
         cpu/bse_solvers.cpp
         cpu/bse_solvers.h
 )
-target_sources(GPU_runner_explicit
+target_sources(GPU_runner
         PRIVATE
 #        gpu/bse_explicit_parallel.cu
         gpu/bse_solvers_parallel.cuh
         main.cu
 )
 
-set_target_properties(GPU_runner_explicit
+set_target_properties(GPU_runner
         PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON
 )
 
-set_target_properties(CPU_runner_explicit
+set_target_properties(CPU_runner
         PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON
 )

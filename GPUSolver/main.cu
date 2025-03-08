@@ -28,29 +28,6 @@ int main() {
     double *host_grid2 = new double[solution2.grid_size()];
     solution2.download(host_grid2);
 
-
-    // printing grid results for debugging
-
-    // for (int i=0; i < t_nodes + 1; i++)
-    // {
-    //     for (int j=0; j < s_nodes + 1; j++)
-    //     {
-    //         std::cout << host_grid1[i * (s_nodes + 1) + j] << " ";
-    //     }
-    //     std::cout << std::endl;
-    // }
-    //
-    // std::cout << std::endl;
-    //
-    // for (int i=0; i < t_nodes + 1; i++)
-    // {
-    //     for (int j=0; j < s_nodes + 1; j++)
-    //     {
-    //         std::cout << host_grid2[i * (s_nodes + 1) + j] << " ";
-    //     }
-    //     std::cout << std::endl;
-    // }
-
     std::cout << "x = " << host_grid1[1400] << std::endl;
     std::cout << "x = " << host_grid2[1400] << std::endl;
 

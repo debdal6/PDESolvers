@@ -9,6 +9,7 @@
 #include <chrono>
 #include <iomanip>
 #include <cusparse.h>
+#include <cublas.h>
 
 /**
  * Define defaults
@@ -38,6 +39,12 @@ inline void gpuAssert(T code, const char *file, int line, bool abort = true) {
     if constexpr (std::is_same_v<T, cudaError_t>) {
         if (code != cudaSuccess) {
             std::cerr << "cuda error. String: " << cudaGetErrorString(code)
+                      << ", file: " << file << ", line: " << line << "\n";
+            if (abort) exit(code);
+        }
+    } else if constexpr(std::is_same_v<T, cusparseStatus_t>) {
+        if (code != CUSPARSE_STATUS_SUCCESS) {
+            std::cerr << "cublas error. Code: " << cusparseGetErrorString(code)
                       << ", file: " << file << ", line: " << line << "\n";
             if (abort) exit(code);
         }
@@ -158,7 +165,7 @@ __global__ static void compute_coefficients(T* d_alpha,
 }
 
 /**
- * Constructs the left-hand side tridiagonal matrix
+ * Prepares the coefficients for the left-hand side tridiagonal matrix
  *
  * @tparam T data type (default: double)
  * @param d_alpha_lhs the alpha coefficients of the lhs matrix
@@ -186,7 +193,33 @@ __global__ static void construct_lhs(T* d_alpha_lhs, T* d_beta_lhs, T* d_gamma_l
 }
 
 /**
- * Constructs the right-hand side vector for the tridiagonal matrix
+ * Initialises the first value of the right-hand side vector for the tridiagonal matrix
+ *
+ * @tparam T data type (default: double)
+ * @param rhs_vector the right-hand side vector
+ * @param current the current time step
+ * @param prev the previous time step
+ * @param d_alpha the alpha coefficients
+ * @param d_beta the beta coefficients
+ * @param d_gamma the gamma coefficients
+ */
+template <typename T = DEFAULT_FPX>
+__global__ static void initialise_rhs_first_val(T* rhs_vector,
+                                     const T* current,
+                                     T* prev,
+                                     T* d_alpha,
+                                     T* d_beta,
+                                     T* d_gamma)
+{
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tid == 0)
+    {
+        rhs_vector[0] = d_alpha[1] * (current[0] + prev[0]) + (1 + d_beta[1]) * current[1] + d_gamma[1] * current[2];
+    }
+}
+
+/**
+ * Initialises the right-hand side vector for the tridiagonal matrix
  *
  * @tparam T data type (default: double)
  * @param rhs_vector the right-hand side vector
@@ -199,7 +232,7 @@ __global__ static void construct_lhs(T* d_alpha_lhs, T* d_beta_lhs, T* d_gamma_l
  * @param s_nodes the number of spatial nodes
  */
 template <typename T = DEFAULT_FPX>
-__global__ static void construct_rhs(T* rhs_vector,
+__global__ static void initialise_rhs_end_val(T* rhs_vector,
                                      const T* current,
                                      T* prev,
                                      T* d_alpha,
@@ -209,23 +242,39 @@ __global__ static void construct_rhs(T* rhs_vector,
                                      int s_nodes)
 {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
-
     if (tid == 0)
     {
-        rhs_vector[0] = d_alpha[1] * (current[0] + prev[0]) + (1 + d_beta[1]) * current[1] + d_gamma[1] * current[2];
+        rhs_vector[vector_size - 1] = d_alpha[vector_size] * current[s_nodes - 2] + (1 + d_beta[vector_size]) *
+            current[s_nodes - 1] + d_gamma[vector_size] * (current[s_nodes] + prev[s_nodes]);
     }
+}
+
+/**
+ * Constructs the remaining inner values of right-hand side vector for the tridiagonal matrix
+ *
+ * @tparam T data type (default: double)
+ * @param rhs_vector the right-hand side vector
+ * @param current the current time step
+ * @param d_alpha the alpha coefficients
+ * @param d_beta the beta coefficients
+ * @param d_gamma the gamma coefficients
+ * @param vector_size the size of the vector
+ */
+template <typename T = DEFAULT_FPX>
+__global__ static void construct_rhs(T* rhs_vector,
+                                     const T* current,
+                                     T* d_alpha,
+                                     T* d_beta,
+                                     T* d_gamma,
+                                     int vector_size)
+{
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (tid >= 1 && tid < vector_size - 1)
     {
         int idx = tid + 1;
         rhs_vector[tid] = d_alpha[idx] * current[idx - 1] + (1 + d_beta[idx]) * current[idx] + d_gamma[idx] * current[
             idx + 1];
-    }
-
-    if (tid == vector_size - 1)
-    {
-        rhs_vector[vector_size - 1] = d_alpha[vector_size] * current[s_nodes - 2] + (1 + d_beta[vector_size]) *
-            current[s_nodes - 1] + d_gamma[vector_size] * (current[s_nodes] + prev[s_nodes]);
     }
 }
 
@@ -260,6 +309,42 @@ __global__ void solve_explicit_parallel(const T *current,
         prev[tid] = current[tid] - (theta * dt);
     }
 }
+
+/**
+ * Singleton for Cuda library handles
+ */
+class Session {
+public:
+
+    static Session &getInstance() {
+        static Session instance;
+        return instance;
+    }
+
+private:
+    Session() {
+        // gpuErrChk(cublasCreate(&m_cublasHandle));
+        gpuErrChk(cusparseCreate(&m_sparseHandle));
+    }
+
+    ~Session() {
+        // gpuErrChk(cublasDestroy(m_cublasHandle));
+        gpuErrChk(cusparseDestroy(m_sparseHandle));
+    }
+
+    cublasHandle_t m_cublasHandle;
+    cusparseHandle_t m_sparseHandle;
+
+
+public:
+    Session(Session const &) = delete;
+
+    void operator=(Session const &) = delete;
+
+    cublasHandle_t &cuBlasHandle() { return m_cublasHandle; }
+
+    cusparseHandle_t &cuSparseHandle() { return m_sparseHandle; }
+};
 
 /**
  * Solution u(x, t)
@@ -381,9 +466,6 @@ Solution<T> solve_bse_cn(T s_max,
 {
     auto start = std::chrono::high_resolution_clock::now();
 
-    cusparseHandle_t handle;
-    cusparseCreate(&handle);
-
     size_t nBlocks_s = numBlocks(s_nodes + 1);
     size_t nBlocks_t = numBlocks(t_nodes + 1);
 
@@ -419,7 +501,7 @@ Solution<T> solve_bse_cn(T s_max,
     void* pBuffer = nullptr;
     size_t bufferSize;
 
-    cusparseDgtsv2_bufferSizeExt(handle, vector_size, 1, d_alpha_lhs, d_beta_lhs, d_gamma_lhs, nullptr, vector_size, &bufferSize);
+    gpuErrChk(cusparseDgtsv2_bufferSizeExt(Session::getInstance().cuSparseHandle(), vector_size, 1, d_alpha_lhs, d_beta_lhs, d_gamma_lhs, nullptr, vector_size, &bufferSize));
     gpuErrChk(cudaMalloc(&pBuffer, bufferSize));
 
     set_terminal_condition<type><<<nBlocks_s, THREADS_PER_BLOCK>>>(dev_grid, s_nodes, t_nodes, dS, strike_price);
@@ -434,20 +516,20 @@ Solution<T> solve_bse_cn(T s_max,
         T* prev = current - (s_nodes + 1);
 
         // constructing RHS vector
-        construct_rhs<<<numBlocks(vector_size), THREADS_PER_BLOCK>>>(d_rhs_vector, current, prev, d_alpha, d_beta, d_gamma,
-                                                      vector_size, s_nodes);
+        initialise_rhs_first_val<<<1, 1>>>(d_rhs_vector, current, prev, d_alpha, d_beta, d_gamma);
+        initialise_rhs_end_val<<<1, 1>>>(d_rhs_vector, current, prev, d_alpha, d_beta, d_gamma, vector_size, s_nodes);
+        construct_rhs<<<numBlocks(vector_size), THREADS_PER_BLOCK>>>(d_rhs_vector, current, d_alpha, d_beta, d_gamma,
+                                                      vector_size);
 
         // solves for the next time step (Ax = b)
-        cusparseDgtsv2(handle, vector_size, 1, d_alpha_lhs, d_beta_lhs, d_gamma_lhs, d_rhs_vector, vector_size, pBuffer);
+        gpuErrChk(cusparseDgtsv2(Session::getInstance().cuSparseHandle(), vector_size, 1, d_alpha_lhs, d_beta_lhs, d_gamma_lhs, d_rhs_vector, vector_size, pBuffer));
 
-        cudaMemcpy(prev + 1, d_rhs_vector, vector_size * sizeof(T), cudaMemcpyDeviceToDevice);
+        gpuErrChk(cudaMemcpy(prev + 1, d_rhs_vector, vector_size * sizeof(T), cudaMemcpyDeviceToDevice));
 
     }
 
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-
-    cusparseDestroy(handle);
 
     gpuErrChk(cudaFree(pBuffer));
     gpuErrChk(cudaFree(d_rhs_vector));
