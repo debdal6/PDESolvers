@@ -28,6 +28,8 @@ int main() {
     double *host_grid2 = new double[solution2.grid_size()];
     solution2.download(host_grid2);
 
+    std::cout << solution2;
+
     std::cout << "x = " << host_grid1[1400] << std::endl;
     std::cout << "x = " << host_grid2[1400] << std::endl;
 

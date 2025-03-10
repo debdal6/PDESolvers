@@ -13,11 +13,13 @@ set(CMAKE_CXX_STANDARD ${CPPVERSION})
 set(CMAKE_CXX_FLAGS "-std=c++${CPPVERSION}")
 set(CMAKE_CUDA_FLAGS "-std=c++${CPPVERSION}")
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}; "-std=c++${CPPVERSION}")
-find_package(CUDAToolkit REQUIRED)
 
 find_package(CUDAToolkit REQUIRED)
 
 enable_language(CUDA)
+add_executable(GPU_runner)
+add_executable(CPU_runner)
+add_executable(CGSolver)
 
 # SOURCE
 # ------------------------------------------
@@ -58,5 +60,10 @@ target_link_libraries(CGSolver PRIVATE
         CUDA::cusparse
         CUDA::cublas
         CUDA::cudart
-        )
+)
+
+target_link_libraries(GPU_runner PRIVATE
+        CUDA::cusparse
+        CUDA::cudart
+)
 
