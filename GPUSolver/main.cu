@@ -16,10 +16,10 @@ int main() {
 
 
     /* Print duration*/
-    std::cout << "[GPU] Explicit method finished in " << std::setprecision(3) << solution1.m_duration << "s"
+    std::cout << "[GPU] Explicit method finished in " << solution1.m_duration << "s"
               << std::endl;
 
-    std::cout << "[GPU] Crank Nicolson method finished in " << std::setprecision(3) << solution2.m_duration << "s"
+    std::cout << "[GPU] Crank Nicolson method finished in " << solution2.m_duration << "s"
           << std::endl;
 
     /* Download solution */
@@ -31,7 +31,7 @@ int main() {
     std::cout << "x = " << host_grid1[1400] << std::endl;
     std::cout << "x = " << host_grid2[1400] << std::endl;
 
-    // delete[] host_grid1;
+    delete[] host_grid1;
     delete[] host_grid2;
 }
 

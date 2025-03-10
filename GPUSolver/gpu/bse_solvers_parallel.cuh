@@ -10,6 +10,8 @@
 #include <iomanip>
 #include <cusparse.h>
 #include <cublas.h>
+#include <fstream>
+#include <filesystem>
 
 /**
  * Define defaults
@@ -323,12 +325,10 @@ public:
 
 private:
     Session() {
-        // gpuErrChk(cublasCreate(&m_cublasHandle));
         gpuErrChk(cusparseCreate(&m_sparseHandle));
     }
 
     ~Session() {
-        // gpuErrChk(cublasDestroy(m_cublasHandle));
         gpuErrChk(cusparseDestroy(m_sparseHandle));
     }
 
@@ -353,6 +353,42 @@ public:
  */
 template<typename T = DEFAULT_FPX>
 class Solution {
+private:
+    static std::string get_output_file_path(const std::string& filename)
+    {
+        std::filesystem::path current_path = std::filesystem::current_path();
+        return (current_path / filename).string();
+    }
+
+    std::ostream &print(std::ostream &out) const
+    {
+        size_t nr = m_t_nodes + 1, nc = m_s_nodes + 1;
+        T* host_data = new T[grid_size()];
+        download(host_data);
+
+        // gets output for file path
+        std::string file_path = get_output_file_path("out.csv");
+
+        // exports to csv file
+        std::ofstream csv_file(file_path);
+        out << "Grid [" << nr << " x " << nc << "]:" << std::endl;
+        for (size_t i = 0; i < nr; i++) {
+            for (size_t j = 0; j < nc; j++) {
+                csv_file << host_data[i * nc + j];
+                if (j < nc - 1) {
+                    csv_file << ",";
+                }
+            }
+        }
+        csv_file << std::endl;
+        csv_file.close();
+
+        out << "Data exported to " << file_path <<" successfully" << std::endl;
+
+        delete[] host_data;
+        return out;
+    }
+
 public:
     T *m_d_data = nullptr;
     size_t m_s_nodes;
@@ -380,6 +416,10 @@ public:
         if (m_d_data) {
             gpuErrChk(cudaMemcpy(host_data, m_d_data, grid_size() * sizeof(double), cudaMemcpyDeviceToHost));
         }
+    }
+
+    friend std::ostream &operator << (std::ostream &out, const Solution<T> &data) {
+        return data.print(out);
     }
 
     // Here we can include more methods (e.g., for printing, finding average value, etc)
