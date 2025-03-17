@@ -24,9 +24,8 @@ class BlackScholesExplicitSolver:
         if self.equation.t_nodes is None:
             dt = 0.9 * dt_max
             self.equation.t_nodes = int(self.equation.expiry/dt)
-            dt = self.equation.expiry / self.equation.t_nodes # to ensure that the expiration time is integer time steps away
+            dt = self.equation.expiry / self.equation.t_nodes
         else:
-            # possible fix - set a check to see that user-defined value is within cfl condition
             dt = T[1] - T[0]
 
             if dt > dt_max:

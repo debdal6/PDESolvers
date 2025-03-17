@@ -86,7 +86,7 @@ class TestBlackScholesSolvers:
 
         diff = np.abs(data1 - data2)
 
-        assert diff < 1e-4
+        assert np.max(diff) < 1e-4
 
 
 
