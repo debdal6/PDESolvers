@@ -19,18 +19,12 @@ def main():
     equation2 = pde.BlackScholesEquation('call', 300, 1, 0.2, 0.05, 100, 100, 20000)
 
     solver1 = pde.BlackScholesCNSolver(equation2)
-    solver2 = pde.BlackScholesExplicitSolver(equation2)
-    res1 = solver1.solve().get_result()
-    res2 = solver2.solve().get_result()
+    # solver2 = pde.BlackScholesExplicitSolver(equation2)
+    sol1 = solver1.solve()
 
-    interpolator1 = pde.RBFInterpolator(res1, 0.8, 200,0.1, 0.03)
-    interpolator2 = pde.RBFInterpolator(res2, 0.8, 200,0.1, 0.03)
-    print(interpolator1.rbf_interpolate())
-    print(interpolator2.rbf_interpolate())
+    sol1.plot_greek('gamma')
+    sol1.plot()
 
-
-# print(res.shape)
-#     res1.plot()
 
 if __name__ == "__main__":
     main()

@@ -44,10 +44,13 @@ class Solution1D:
         return self.result
 
 class SolutionBlackScholes:
-    def __init__(self, result, s_grid, t_grid):
+    def __init__(self, result, s_grid, t_grid, delta, gamma, theta):
         self.result = result
         self.s_grid = s_grid
         self.t_grid = t_grid
+        self.delta = delta
+        self.gamma = gamma
+        self.theta = theta
 
     def plot(self):
         """
@@ -78,3 +81,28 @@ class SolutionBlackScholes:
         :return: grid result
         """
         return self.result
+
+    def plot_greek(self, greek_type='delta', time_step=0):
+
+        greek_types = {
+            'delta': {'data': self.delta, 'title': 'Delta'},
+            'gamma': {'data': self.gamma, 'title': 'Gamma'},
+            'theta': {'data': self.theta, 'title': 'Theta'}
+        }
+
+        if greek_type.lower() not in greek_types:
+            raise ValueError("Invalid greek type - please choose between delta/gamma/theta.")
+
+        chosen_greek = greek_types[greek_type.lower()]
+        greek_data = chosen_greek['data'][:, time_step]
+        plt.figure(figsize=(8, 6))
+        plt.plot(self.s_grid, greek_data, label=f"Delta at t={self.t_grid[time_step]:.4f}", color="blue")
+
+        plt.title(f"{chosen_greek['title']} vs. Stock Price at t={self.t_grid[time_step]:.4f}")
+        plt.xlabel("Stock Price (S)")
+        plt.ylabel(chosen_greek['title'])
+        plt.grid()
+        plt.legend()
+
+        plt.show()
+

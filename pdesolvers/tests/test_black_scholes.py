@@ -19,7 +19,7 @@ class TestBlackScholesSolvers:
     def test_check_terminal_condition_for_call_explicit(self):
         result = solver.BlackScholesExplicitSolver(self.equation).solve().get_result()
 
-        test_asset_grid = self.equation.generate_asset_grid()
+        test_asset_grid = self.equation.generate_grid(self.equation.S_max, self.equation.s_nodes)
         test_strike_price = self.equation.strike_price
         expected_payoff = np.maximum(test_asset_grid - test_strike_price, 0)
 
@@ -29,7 +29,7 @@ class TestBlackScholesSolvers:
         self.equation.option_type = 'put'
         result = solver.BlackScholesExplicitSolver(self.equation).solve().get_result()
 
-        test_asset_grid = self.equation.generate_asset_grid()
+        test_asset_grid = self.equation.generate_grid(self.equation.S_max, self.equation.s_nodes)
         test_strike_price = self.equation.strike_price
         expected_payoff = np.maximum(test_strike_price - test_asset_grid, 0)
 
@@ -50,7 +50,7 @@ class TestBlackScholesSolvers:
     def test_check_terminal_condition_for_call_cn(self):
         result = solver.BlackScholesCNSolver(self.equation).solve().get_result()
 
-        test_asset_grid = self.equation.generate_asset_grid()
+        test_asset_grid = self.equation.generate_grid(self.equation.S_max, self.equation.s_nodes)
         test_strike_price = self.equation.strike_price
         expected_payoff = np.maximum(test_asset_grid - test_strike_price, 0)
 
@@ -60,7 +60,7 @@ class TestBlackScholesSolvers:
         self.equation.option_type = 'put'
         result = solver.BlackScholesCNSolver(self.equation).solve().get_result()
 
-        test_asset_grid = self.equation.generate_asset_grid()
+        test_asset_grid = self.equation.generate_grid(self.equation.S_max, self.equation.s_nodes)
         test_strike_price = self.equation.strike_price
         expected_payoff = np.maximum(test_strike_price - test_asset_grid, 0)
 
