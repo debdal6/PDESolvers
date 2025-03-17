@@ -26,11 +26,9 @@ class BlackScholesEquation:
         self.__t_nodes = t_nodes
         self.__V = None
 
-    def generate_asset_grid(self):
-        return np.linspace(0, self.__S_max, self.__s_nodes+1)
-
-    def generate_time_grid(self):
-        return np.linspace(0, self.__expiry, self.__t_nodes+1)
+    @staticmethod
+    def generate_grid(value, nodes):
+        return np.linspace(0, value, nodes + 1)
 
     @property
     def s_nodes(self):

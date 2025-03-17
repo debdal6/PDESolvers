@@ -16,23 +16,29 @@ class Heat1DExplicitSolver:
         :return: the solver instance with the computed temperature values
         """
 
-        x = self.equation.generate_x_grid()
+        x = self.equation.generate_grid(self.equation.length, self.equation.x_nodes)
+        t = self.equation.generate_grid(self.equation.time, self.equation.t_nodes)
+
         dx = x[1] - x[0]
-
         dt_max = 0.5 * (dx**2) / self.equation.k
-        dt = 0.8 * dt_max
-        time_step = int(self.equation.time/dt)
-        self.equation.t_nodes = time_step
 
-        t = np.linspace(0, self.equation.time, self.equation.t_nodes)
+        if self.equation.t_nodes is None:
+            dt = 0.8 * dt_max
+            self.equation.t_nodes = int(self.equation.time/dt)
+            dt = self.equation.time / self.equation.t_nodes
+        else:
+            dt = t[1] - t[0]
 
-        u = np.zeros((time_step, self.equation.x_nodes))
+        if dt > dt_max:
+            raise ValueError("User-defined t nodes is too small and exceeds the CFL condition. Possible action: Increase number of t nodes for stability!")
+
+        u = np.zeros((self.equation.t_nodes, self.equation.x_nodes))
 
         u[0, :] = self.equation.get_initial_temp(x)
         u[:, 0] = self.equation.get_left_boundary(t)
         u[:, -1] = self.equation.get_right_boundary(t)
 
-        for tau in range(0, time_step-1):
+        for tau in range(0, self.equation.t_nodes-1):
             for i in range(1, self.equation.x_nodes - 1):
                 u[tau+1,i] = u[tau, i] + (dt * self.equation.k * (u[tau, i-1] - 2 * u[tau, i] + u[tau, i+1]) / dx**2)
 
@@ -49,8 +55,8 @@ class Heat1DCNSolver:
         :return: the solver instance with the computed temperature values
         """
 
-        x = self.equation.generate_x_grid()
-        t = self.equation.generate_t_grid()
+        x = self.equation.generate_grid(self.equation.length, self.equation.x_nodes)
+        t = self.equation.generate_grid(self.equation.time, self.equation.t_nodes)
 
         dx = x[1] - x[0]
         dt = t[1] - t[0]
