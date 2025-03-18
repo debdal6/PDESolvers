@@ -1,7 +1,6 @@
 import numpy as np
 import pdesolvers as pde
 
-
 def main():
 
     # testing for heat equation
@@ -16,7 +15,7 @@ def main():
     # solver2 = pde.Heat1DExplicitSolver(equation1)
 
     # testing for bse
-    equation2 = pde.BlackScholesEquation('call', 300, 1, 0.2, 0.05, 100, 100, 20000)
+    equation2 = pde.BlackScholesEquation(pde.OptionType.EUROPEAN_CALL, 300, 1, 0.2, 0.05, 100, 100, 20000)
 
     solver1 = pde.BlackScholesCNSolver(equation2)
     # solver2 = pde.BlackScholesExplicitSolver(equation2)
