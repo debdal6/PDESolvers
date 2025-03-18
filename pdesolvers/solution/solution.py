@@ -1,4 +1,3 @@
-import pdesolvers.pdes.black_scholes as bse
 import numpy as np
 from matplotlib import pyplot as plt
 

@@ -3,6 +3,7 @@ from scipy.sparse.linalg import spsolve
 import numpy as np
 import pdesolvers.solution as sol
 import pdesolvers.pdes.black_scholes as bse
+import pdesolvers.enums.option_type as enum
 
 class BlackScholesExplicitSolver:
 
@@ -36,9 +37,9 @@ class BlackScholesExplicitSolver:
         V = np.zeros((self.equation.s_nodes + 1, self.equation.t_nodes + 1))
 
         # setting terminal condition
-        if self.equation.option_type == 'call':
+        if self.equation.option_type == enum.OptionType.EUROPEAN_CALL:
             V[:,-1] = np.maximum((S - self.equation.strike_price), 0)
-        elif self.equation.option_type == 'put':
+        elif self.equation.option_type == enum.OptionType.EUROPEAN_PUT:
             V[:,-1] = np.maximum((self.equation.strike_price - S), 0)
         else:
             raise ValueError("Invalid option type - please choose between call/put")
@@ -74,10 +75,10 @@ class BlackScholesExplicitSolver:
 
         lower_boundary = None
         upper_boundary = None
-        if self.equation.option_type == 'call':
+        if self.equation.option_type == enum.OptionType.EUROPEAN_CALL:
             lower_boundary = 0
             upper_boundary = self.equation.S_max - self.equation.strike_price * np.exp(-self.equation.rate * (self.equation.expiry - T[tau]))
-        elif self.equation.option_type == 'put':
+        elif self.equation.option_type == enum.OptionType.EUROPEAN_PUT:
             lower_boundary = self.equation.strike_price * np.exp(-self.equation.rate * (self.equation.expiry - T[tau]))
             upper_boundary = 0
 
@@ -130,14 +131,14 @@ class BlackScholesCNSolver:
 
 
 # setting terminal condition (for all values of S at time T)
-        if self.equation.option_type == 'call':
+        if self.equation.option_type == enum.OptionType.EUROPEAN_CALL:
             V[:,-1] = np.maximum((S - self.equation.strike_price), 0)
 
             # setting boundary conditions (for all values of t at asset prices S=0 and S=Smax)
             V[0, :] = 0
             V[-1, :] = S[-1] - self.equation.strike_price * np.exp(-self.equation.rate * (self.equation.expiry - T))
 
-        elif self.equation.option_type == 'put':
+        elif self.equation.option_type == enum.OptionType.EUROPEAN_PUT:
             V[:,-1] = np.maximum((self.equation.strike_price - S), 0)
             V[0, :] = self.equation.strike_price * np.exp(-self.equation.rate * (self.equation.expiry - T))
             V[-1, :] = 0
