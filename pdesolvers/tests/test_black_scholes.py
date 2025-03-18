@@ -3,8 +3,8 @@ import numpy as np
 
 import pdesolvers.pdes.black_scholes as bse
 import pdesolvers.solvers.black_scholes_solvers as solver
-import pdesolvers.utils.utility as utility
 import pdesolvers.enums.option_type as enum
+import pdesolvers.utils.utility as utility
 
 class TestBlackScholesEquation:
 
@@ -82,18 +82,26 @@ class TestBlackScholesSolvers:
 
         assert np.max(np.abs(diff)) < 1e-2
 
-    def test_convergence_between_interpolated_data(self):
+    def test_convergence_between_single_interpolated_point(self):
         result1 = solver.BlackScholesExplicitSolver(self.equation).solve()
         result2 = solver.BlackScholesCNSolver(self.equation).solve()
         u1 = result1.get_result()
         u2 = result2.get_result()
 
-        data1 = utility.RBFInterpolator(u1, 0.1, 0.03).interpolate(4,20)
-        data2 = utility.RBFInterpolator(u2,0.1, 0.03).interpolate(4,20)
+        data1 = utility.RBFInterpolator(u1, 0.1, 0.03).interpolate(0.2,0.9)
+        data2 = utility.RBFInterpolator(u2, 0.1, 0.03).interpolate(0.2,0.9)
 
         diff = np.abs(data1 - data2)
 
-        assert np.max(diff) < 1e-4
+        assert diff < 1e-4
+
+    def test_convergence_between_two_interpolated_grids(self):
+        result1 = solver.BlackScholesExplicitSolver(self.equation).solve()
+        result2 = solver.BlackScholesCNSolver(self.equation).solve()
+
+        diff = np.abs(result1 - result2)
+
+        assert diff < 1e-1
 
 
 

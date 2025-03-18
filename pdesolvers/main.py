@@ -21,7 +21,6 @@ def main():
     # solver2 = pde.BlackScholesExplicitSolver(equation2)
     sol1 = solver1.solve()
 
-    sol1.plot_greek('gamma')
     sol1.plot()
 
 

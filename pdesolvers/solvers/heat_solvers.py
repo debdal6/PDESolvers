@@ -42,7 +42,7 @@ class Heat1DExplicitSolver:
             for i in range(1, self.equation.x_nodes - 1):
                 u[tau+1,i] = u[tau, i] + (dt * self.equation.k * (u[tau, i-1] - 2 * u[tau, i] + u[tau, i+1]) / dx**2)
 
-        return sol.Solution1D(u, x, t)
+        return sol.Solution1D(u, x, t, dx, dt)
 
 class Heat1DCNSolver:
     def __init__(self, equation: heat.HeatEquation):
@@ -85,7 +85,7 @@ class Heat1DCNSolver:
 
             u[tau+1, 1:-1] = spsolve(lhs, rhs)
 
-        return sol.Solution1D(u, x, t)
+        return sol.Solution1D(u, x, t, dx, dt)
 
     @staticmethod
     def __build_tridiagonal_matrix(a, b, c, nodes):

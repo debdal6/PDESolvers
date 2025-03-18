@@ -17,7 +17,7 @@ class RBFInterpolator:
         self.__z = z
         self.__hx = hx
         self.__hy = hy
-        self.__nx, self._ny = z.shape
+        self.__nx, self.__ny = z.shape
 
     def __get_coordinates(self, x, y):
         """
@@ -28,19 +28,11 @@ class RBFInterpolator:
 
         # gets the grid steps to x
         i_minus_star = int(np.floor(x / self.__hx))
-        if i_minus_star > self.__nx - 1:
-            raise Exception("x is out of bounds")
-
-        # final i index for interpolation
-        i_minus = i_minus_star if i_minus_star < self.__nx - 1 else self.__nx - 1
+        i_minus = min(max(0, i_minus_star), self.__nx - 2)
 
         # gets the grid steps to y
         j_minus_star = int(np.floor(y / self.__hy))
-        if j_minus_star > self._ny - 1:
-            raise Exception("y is out of bounds")
-
-        # final j index for interpolation
-        j_minus = j_minus_star if j_minus_star < self._ny - 1 else self._ny - 1
+        j_minus = min(max(0, j_minus_star), self.__ny - 2)
 
         # computes the coordinates at the computed indices
         x_minus = i_minus * self.__hx
@@ -100,6 +92,3 @@ class RBFInterpolator:
         interpolated /= sum_rbf
 
         return interpolated
-
-    def interpolate_all(self):
-        pass

@@ -62,7 +62,7 @@ class BlackScholesExplicitSolver:
 
             delta, gamma, theta = self.__calculate_greeks_at_boundary(delta, gamma, theta, tau, V, S, ds)
 
-        return sol.SolutionBlackScholes(V,S,T, delta, gamma, theta)
+        return sol.SolutionBlackScholes(V,T,S, dt, ds, delta, gamma, theta)
 
     def __set_boundary_conditions(self, T, tau):
         """
@@ -161,7 +161,7 @@ class BlackScholesCNSolver:
 
             delta, gamma, theta = self.__calculate_greeks_at_boundary(delta, gamma, theta, tau, V, S, ds)
 
-        return sol.SolutionBlackScholes(V,S,T, delta, gamma, theta)
+        return sol.SolutionBlackScholes(V,T,S, dt, ds, delta, gamma, theta)
 
     def __calculate_greeks_at_boundary(self, delta, gamma, theta, tau, V, S, ds):
         delta[0, tau] = (V[1, tau+1] - V[0, tau+1]) / ds
