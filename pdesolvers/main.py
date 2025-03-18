@@ -18,9 +18,9 @@ def main():
     equation2 = pde.BlackScholesEquation(pde.OptionType.EUROPEAN_CALL, 300, 1, 0.2, 0.05, 100, 100, 20000)
 
     solver1 = pde.BlackScholesCNSolver(equation2)
-    # solver2 = pde.BlackScholesExplicitSolver(equation2)
+    solver2 = pde.BlackScholesExplicitSolver(equation2)
     sol1 = solver1.solve()
-
+    sol1.plot_greek(pde.Greeks.GAMMA)
     sol1.plot()
 
 

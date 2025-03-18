@@ -1,5 +1,7 @@
 import numpy as np
 import pdesolvers.utils.utility as utility
+import pdesolvers.enums.enums as enum
+
 from matplotlib import pyplot as plt
 
 class Solution:
@@ -92,24 +94,25 @@ class Solution1D(Solution):
 
 
 class SolutionBlackScholes(Solution):
-    def __init__(self, result, x_grid, y_grid, dx, dy, delta, gamma, theta):
+    def __init__(self, result, x_grid, y_grid, dx, dy, delta, gamma, theta, option_type):
         super().__init__(result, x_grid, y_grid, dx, dy)
+        self.option_type = option_type
         self.delta = delta
         self.gamma = gamma
         self.theta = theta
 
-    def plot_greek(self, greek_type='delta', time_step=0):
+    def plot_greek(self, greek_type=enum.Greeks.DELTA, time_step=0):
 
         greek_types = {
-            'delta': {'data': self.delta, 'title': 'Delta'},
-            'gamma': {'data': self.gamma, 'title': 'Gamma'},
-            'theta': {'data': self.theta, 'title': 'Theta'}
+            enum.Greeks.DELTA : {'data': self.delta, 'title': enum.Greeks.DELTA.value},
+            enum.Greeks.GAMMA : {'data': self.gamma, 'title': enum.Greeks.DELTA.value},
+            enum.Greeks.THETA : {'data': self.theta, 'title': enum.Greeks.DELTA.value}
         }
 
-        if greek_type.lower() not in greek_types:
-            raise ValueError("Invalid greek type - please choose between delta/gamma/theta.")
+        # if greek_type.lower() not in greek_types:
+        #     raise ValueError("Invalid greek type - please choose between delta/gamma/theta.")
 
-        chosen_greek = greek_types[greek_type.lower()]
+        chosen_greek = greek_types[greek_type]
         greek_data = chosen_greek['data'][:, time_step]
         plt.figure(figsize=(8, 6))
         plt.plot(self.y_grid, greek_data, label=f"Delta at t={self.x_grid[time_step]:.4f}", color="blue")
@@ -125,5 +128,5 @@ class SolutionBlackScholes(Solution):
     def _set_plot_labels(self, ax):
         ax.set_xlabel('Time')
         ax.set_ylabel('Asset Price')
-        ax.set_zlabel('Option Value')
-        ax.set_title('Option Value Surface Plot')
+        ax.set_zlabel(f'{self.option_type.value} Option Value')
+        ax.set_title(f'{self.option_type.value} Option Value Surface Plot')

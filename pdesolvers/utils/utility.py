@@ -1,5 +1,66 @@
 import numpy as np
+from scipy.sparse import csc_matrix
 
+import pdesolvers.enums.enums as enum
+
+class Heat1DHelper:
+
+    @staticmethod
+    def build_tridiagonal_matrix(a, b, c, nodes):
+        """
+        Initialises the tridiagonal matrix on the LHS of the equation
+
+        :param a: the coefficient of U @ (t = tau + 1 & x = i-1)
+        :param b: the coefficient of U @ (t = tau + 1 & x = i)
+        :param c: the coefficient of U @ (t = tau + 1 & x = i+1)
+        :param nodes: number of spatial nodes ( used to initialise the size of the tridiagonal matrix)
+        :return: the tridiagonal matrix consisting of coefficients
+        """
+
+        matrix = np.zeros((nodes, nodes))
+        np.fill_diagonal(matrix, b)
+        np.fill_diagonal(matrix[1:], a)
+        np.fill_diagonal(matrix[:, 1:], c)
+
+        matrix = csc_matrix(matrix)
+
+        return matrix
+
+class BlackScholesHelper:
+
+    @staticmethod
+    def calculate_greeks_at_boundary(equation, delta, gamma, theta, tau, V, S, ds):
+        delta[0, tau] = (V[1, tau+1] - V[0, tau+1]) / ds
+        delta[equation.s_nodes, tau] = (V[equation.s_nodes, tau+1] - V[equation.s_nodes-1, tau+1]) / ds
+
+        gamma[0, tau] = (V[2, tau+1] - 2*V[1, tau+1] + V[0, tau+1]) / (ds**2)
+        gamma[equation.s_nodes, tau] = (V[equation.s_nodes, tau+1] - 2*V[equation.s_nodes-1, tau+1] + V[equation.s_nodes-2, tau+1]) / (ds**2)
+
+        theta[0, tau] = -0.5 * (equation.sigma**2) * (S[0]**2) * gamma[0, tau] - equation.rate * S[0] * delta[0, tau] + equation.rate * V[0, tau+1]
+        theta[equation.s_nodes, tau] = -0.5 * (equation.sigma**2) * (S[-1]**2) * gamma[equation.s_nodes, tau] - equation.rate * S[-1] * delta[equation.s_nodes, tau] + equation.rate * V[equation.s_nodes, tau+1]
+
+        return delta, gamma, theta
+
+    @staticmethod
+    def set_boundary_conditions(equation, T, tau):
+        """
+        Sets the boundary conditions for the Black-Scholes Equation based on option type
+
+        :param T: grid of time steps
+        :param tau: index of current time step
+        :return: a tuple representing the boundary values for the given time step
+        """
+
+        lower_boundary = None
+        upper_boundary = None
+        if equation.option_type == enum.OptionType.EUROPEAN_CALL:
+            lower_boundary = 0
+            upper_boundary = equation.S_max - equation.strike_price * np.exp(-equation.rate * (equation.expiry - T[tau]))
+        elif equation.option_type == enum.OptionType.EUROPEAN_PUT:
+            lower_boundary = equation.strike_price * np.exp(-equation.rate * (equation.expiry - T[tau]))
+            upper_boundary = 0
+
+        return lower_boundary, upper_boundary
 
 class RBFInterpolator:
 
