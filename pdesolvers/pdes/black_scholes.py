@@ -1,5 +1,5 @@
 import numpy as np
-from pdesolvers.enums.option_type import OptionType
+from pdesolvers.enums.enums import OptionType
 
 class BlackScholesEquation:
 

@@ -1,9 +1,11 @@
-from scipy import sparse
-from scipy.sparse.linalg import spsolve
 import numpy as np
 import pdesolvers.solution as sol
 import pdesolvers.pdes.black_scholes as bse
-import pdesolvers.enums.option_type as enum
+import pdesolvers.enums.enums as enum
+import pdesolvers.utils.utility as utility
+
+from scipy import sparse
+from scipy.sparse.linalg import spsolve
 
 class BlackScholesExplicitSolver:
 
@@ -56,46 +58,13 @@ class BlackScholesExplicitSolver:
                 V[i, tau] = V[i, tau + 1] - (theta[i, tau] * dt)
 
             # setting boundary conditions
-            lower, upper = self.__set_boundary_conditions(T, tau)
+            lower, upper = utility.BlackScholesHelper.set_boundary_conditions(self.equation, T, tau)
             V[0, tau] = lower
             V[self.equation.s_nodes, tau] = upper
 
-            delta, gamma, theta = self.__calculate_greeks_at_boundary(delta, gamma, theta, tau, V, S, ds)
+            delta, gamma, theta = utility.BlackScholesHelper.calculate_greeks_at_boundary(self.equation, delta, gamma, theta, tau, V, S, ds)
 
-        return sol.SolutionBlackScholes(V,S,T, delta, gamma, theta)
-
-    def __set_boundary_conditions(self, T, tau):
-        """
-        Sets the boundary conditions for the Black-Scholes Equation based on option type
-
-        :param T: grid of time steps
-        :param tau: index of current time step
-        :return: a tuple representing the boundary values for the given time step
-        """
-
-        lower_boundary = None
-        upper_boundary = None
-        if self.equation.option_type == enum.OptionType.EUROPEAN_CALL:
-            lower_boundary = 0
-            upper_boundary = self.equation.S_max - self.equation.strike_price * np.exp(-self.equation.rate * (self.equation.expiry - T[tau]))
-        elif self.equation.option_type == enum.OptionType.EUROPEAN_PUT:
-            lower_boundary = self.equation.strike_price * np.exp(-self.equation.rate * (self.equation.expiry - T[tau]))
-            upper_boundary = 0
-
-        return lower_boundary, upper_boundary
-
-    def __calculate_greeks_at_boundary(self, delta, gamma, theta, tau, V, S, ds):
-        delta[0, tau] = (V[1, tau+1] - V[0, tau+1]) / ds  # Forward difference for lower boundary
-        delta[self.equation.s_nodes, tau] = (V[self.equation.s_nodes, tau+1] - V[self.equation.s_nodes-1, tau+1]) / ds  # Backward difference for upper boundary
-
-        gamma[0, tau] = (V[2, tau+1] - 2*V[1, tau+1] + V[0, tau+1]) / (ds**2)  # Forward approximation
-        gamma[self.equation.s_nodes, tau] = (V[self.equation.s_nodes, tau+1] - 2*V[self.equation.s_nodes-1, tau+1] + V[self.equation.s_nodes-2, tau+1]) / (ds**2)  # Backward approximation
-
-        # Calculate theta for boundary points using the same formula
-        theta[0, tau] = -0.5 * (self.equation.sigma**2) * (S[0]**2) * gamma[0, tau] - self.equation.rate * S[0] * delta[0, tau] + self.equation.rate * V[0, tau+1]
-        theta[self.equation.s_nodes, tau] = -0.5 * (self.equation.sigma**2) * (S[-1]**2) * gamma[self.equation.s_nodes, tau] - self.equation.rate * S[-1] * delta[self.equation.s_nodes, tau] + self.equation.rate * V[self.equation.s_nodes, tau+1]
-
-        return delta, gamma, theta
+        return sol.SolutionBlackScholes(V, T, S, dt, ds, delta, gamma, theta, self.equation.option_type)
 
 
 class BlackScholesCNSolver:
@@ -159,18 +128,7 @@ class BlackScholesCNSolver:
             gamma[1:-1, tau] = (V[2:, tau] - 2 * V[1:-1, tau] + V[:-2, tau]) / (ds**2)
             theta[1:-1, tau] = -0.5 * (self.equation.sigma**2) * (S[1:-1]**2) * gamma[1:-1, tau] - self.equation.rate * S[1:-1] * delta[1:-1, tau] + self.equation.rate * V[1:-1, tau]
 
-            delta, gamma, theta = self.__calculate_greeks_at_boundary(delta, gamma, theta, tau, V, S, ds)
+            delta, gamma, theta = utility.BlackScholesHelper.calculate_greeks_at_boundary(self.equation, delta, gamma, theta, tau, V, S, ds)
 
-        return sol.SolutionBlackScholes(V,S,T, delta, gamma, theta)
+        return sol.SolutionBlackScholes(V, T, S, dt, ds, delta, gamma, theta, self.equation.option_type)
 
-    def __calculate_greeks_at_boundary(self, delta, gamma, theta, tau, V, S, ds):
-        delta[0, tau] = (V[1, tau+1] - V[0, tau+1]) / ds
-        delta[self.equation.s_nodes, tau] = (V[self.equation.s_nodes, tau+1] - V[self.equation.s_nodes-1, tau+1]) / ds
-
-        gamma[0, tau] = (V[2, tau+1] - 2*V[1, tau+1] + V[0, tau+1]) / (ds**2)
-        gamma[self.equation.s_nodes, tau] = (V[self.equation.s_nodes, tau+1] - 2*V[self.equation.s_nodes-1, tau+1] + V[self.equation.s_nodes-2, tau+1]) / (ds**2)
-
-        theta[0, tau] = -0.5 * (self.equation.sigma**2) * (S[0]**2) * gamma[0, tau] - self.equation.rate * S[0] * delta[0, tau] + self.equation.rate * V[0, tau+1]
-        theta[self.equation.s_nodes, tau] = -0.5 * (self.equation.sigma**2) * (S[-1]**2) * gamma[self.equation.s_nodes, tau] - self.equation.rate * S[-1] * delta[self.equation.s_nodes, tau] + self.equation.rate * V[self.equation.s_nodes, tau+1]
-
-        return delta, gamma, theta

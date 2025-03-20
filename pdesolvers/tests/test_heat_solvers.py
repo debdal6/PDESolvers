@@ -28,7 +28,7 @@ class TestHeatSolvers:
 
         assert np.max(np.abs(diff)) < 1e-2
 
-    def test_convergence_between_interpolated_data(self):
+    def test_convergence_between_single_interpolated_point(self):
         result1 = solver.Heat1DExplicitSolver(self.equation).solve()
         result2 = solver.Heat1DCNSolver(self.equation).solve()
         u1 = result1.get_result()
@@ -39,8 +39,13 @@ class TestHeatSolvers:
 
         diff = np.abs(data1 - data2)
 
-        assert np.max(diff) < 1e-4
+        assert diff < 1e-4
 
+    def test_convergence_between_two_interpolated_grids(self):
+        result1 = solver.Heat1DExplicitSolver(self.equation).solve()
+        result2 = solver.Heat1DCNSolver(self.equation).solve()
 
+        diff = np.abs(result1 - result2)
 
-    # crank-nicolson method tests
+        assert diff < 1e-1
+
