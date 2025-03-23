@@ -49,7 +49,7 @@ class MonteCarloPricing:
 
         This method calculates the stock prices at each time step for each simulation.
         """
-        np.random.seed(42)
+
         t = self.__generate_grid()
         dt = t[1] - t[0]
 
@@ -81,27 +81,16 @@ class MonteCarloPricing:
 
         return np.linspace(0, self.__T, self.__time_steps)
 
-    def __get_stock_prices(self):
-        """
-        Get the simulated stock prices.
-
-        Returns:
-        - A numpy array of simulated stock prices.
-        """
-
-        return self.__S
-
     def plot(self):
         """
         Plot the simulated stock prices for all simulations.
         """
 
         t = self.__generate_grid()
-        S = self.__get_stock_prices()
 
         fig = plt.figure(figsize=(10,6))
         for i in range(self.__sim):
-            plt.plot(t, S[i])
+            plt.plot(t, self.__S[i], color='grey', alpha=0.3)
 
         plt.title("Simulated Geometric Brownian Motion")
         plt.xlabel("Time (Years)")

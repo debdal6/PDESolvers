@@ -1,6 +1,6 @@
 import numpy as np
 import pdesolvers as pde
-from pdesolvers import HistoricalStockData, OptionsData
+from pdesolvers import HistoricalStockData
 
 
 def main():
@@ -37,13 +37,13 @@ def main():
 
     # COMPARISON
     pricing_1 = pde.BlackScholesFormula(pde.OptionType.EUROPEAN_CALL, current_price, 100, r, sigma, 1)
-    pricing_2 = pde.MonteCarloPricing(pde.OptionType.EUROPEAN_CALL, current_price, 100, r, sigma, 1, 365, 1000)
+    pricing_2 = pde.MonteCarloPricing(pde.OptionType.EUROPEAN_CALL, current_price, 100, r, sigma, 1, 365, 500)
 
     bs_price = pricing_1.get_black_scholes_merton_price()
     monte_carlo_price = pricing_2.get_monte_carlo_option_price()
     print(f"Black-Scholes Price: {bs_price}")
     print(f"Monte-Carlo Price: {monte_carlo_price}")
-
+    pricing_2.plot()
 
 if __name__ == "__main__":
     main()
