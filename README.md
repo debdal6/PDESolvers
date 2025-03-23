@@ -13,6 +13,10 @@ It includes two key components:
 - **Python Library**: A general-purpose solver for PDEs implemented using numerical methods.
 - **CUDA Library**: A GPU-accelerated version of the solvers for faster and efficient computations.
 
+Numerical Methods used to solve partial differential equations:
+- **Explicit Method**
+- **Crank-Nicolson Method**
+
 ## Requirements
 
 ### Python Library
