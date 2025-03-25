@@ -379,8 +379,8 @@ private:
                     csv_file << ",";
                 }
             }
+            csv_file << std::endl;
         }
-        csv_file << std::endl;
         csv_file.close();
 
         out << "Data exported to " << file_path <<" successfully" << std::endl;
