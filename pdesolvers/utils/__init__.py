@@ -1,1 +1,1 @@
-from .utility import RBFInterpolator
+from .utility import RBFInterpolator, GPUResults

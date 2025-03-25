@@ -89,7 +89,7 @@ class MonteCarloPricing:
         t = self.__generate_grid()
 
         fig = plt.figure(figsize=(10,6))
-        for i in range(self.__sim):
+        for i in range(np.min([100, self.__sim])):
             plt.plot(t, self.__S[i], color='grey', alpha=0.3)
 
         plt.title("Simulated Geometric Brownian Motion")
