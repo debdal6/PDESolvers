@@ -22,10 +22,13 @@ class HistoricalStockData:
         self.__stock_data["Time Diff"] = self.__stock_data.index.to_series().diff().dt.days
         self.__stock_data["Z"] = self.__stock_data["Log Returns"] / self.__stock_data["Time Diff"]
 
-        annualized_sigma = self.__stock_data["Z"].std() * np.sqrt(252)
-        annualized_mu = self.__stock_data["Z"].mean() * 252
+        sigma = self.__stock_data["Log Returns"].std()
+        mu = self.__stock_data["Log Returns"].mean()
 
-        return annualized_sigma, annualized_mu
+        # annualized_sigma = self.__stock_data["Log Returns"].std() * np.sqrt(252)
+        # annualized_mu = self.__stock_data["Log Returns"].mean() * 252
+
+        return sigma, mu
 
     def get_latest_stock_price(self):
         if self.__stock_data is None:

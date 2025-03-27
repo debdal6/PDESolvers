@@ -4,18 +4,30 @@ import pdesolvers.pdes.black_scholes as bse
 import pdesolvers.solvers.black_scholes_solvers as solver
 import pdesolvers.utils.utility as utility
 
+from pdesolvers.optionspricing.black_scholes_formula import BlackScholesFormula
 from pdesolvers.enums.enums import OptionType, Greeks
+
+@pytest.fixture
+def bsf_pricing_params():
+    return {
+        'S0': 300.0,
+        'strike_price': 100.0,
+        'r': 0.05,
+        'sigma': 0.2,
+        'expiry': 1.0
+    }
+
 
 class TestBlackScholesEquation:
 
     def test_check_invalid_option_type_input(self):
         with pytest.raises(TypeError, match="Option type must be of type OptionType enum"):
-            self.equation = bse.BlackScholesEquation('woo', 300, 1, 0.2, 0.05, 100, 100, 2000)
+            self.equation = bse.BlackScholesEquation('woo', 300, 100, 0.05, 0.2, 1, 100, 2000)
 
 class TestBlackScholesSolvers:
 
     def setup_method(self):
-        self.equation = bse.BlackScholesEquation(OptionType.EUROPEAN_CALL, 300, 1, 0.2, 0.05, 100, 100, 2000)
+        self.equation = bse.BlackScholesEquation(OptionType.EUROPEAN_CALL, 300, 100, 0.05, 0.2, 1, 100, 2000)
 
     # explicit method tests
 
@@ -103,6 +115,20 @@ class TestBlackScholesSolvers:
 
         assert diff < 1e-1
 
+    def test_compare_results_between_solver_and_analytical_formula(self, bsf_pricing_params):
+        result1 = solver.BlackScholesCNSolver(self.equation).solve().get_result()
+        test_bsf = BlackScholesFormula(
+            OptionType.EUROPEAN_CALL, **bsf_pricing_params
+        )
 
+        asset_grid = self.equation.generate_grid(self.equation.S_max, self.equation.s_nodes)
+        s0_index = np.abs(asset_grid - bsf_pricing_params['S0']).argmin()
 
+        result1_at_s0 = result1[s0_index, 0]
+        result2 = test_bsf.get_black_scholes_merton_price()
 
+        print(result1_at_s0)
+        print(result2)
+        diff = abs(result1_at_s0 - result2)
+
+        assert diff < 1e-6

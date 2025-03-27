@@ -3,16 +3,16 @@ from pdesolvers.enums.enums import OptionType
 
 class BlackScholesEquation:
 
-    def __init__(self, option_type: OptionType, S_max, expiry, sigma, r, K, s_nodes=1, t_nodes=None):
+    def __init__(self, option_type: OptionType, S_max, K, r, sigma, expiry, s_nodes=1, t_nodes=None):
         """
         Initialises the solver with the necessary parameters
 
         :param option_type: the type of option
         :param S_max: maximum asset price in the grid
-        :param expiry: time to maturity/expiry of the option
-        :param sigma: volatility of the asset
-        :param r: risk-free interest rate
         :param K: strike price
+        :param r: risk-free interest rate
+        :param sigma: volatility of the asset
+        :param expiry: time to maturity/expiry of the option
         :param s_nodes: number of asset price nodes
         :param t_nodes: number of time nodes
         """
