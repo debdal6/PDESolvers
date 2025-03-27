@@ -22,8 +22,6 @@ class HistoricalStockData:
         self.__stock_data["Time Diff"] = self.__stock_data.index.to_series().diff().dt.days
         self.__stock_data["Z"] = self.__stock_data["Log Returns"] / self.__stock_data["Time Diff"]
 
-        print(self.__stock_data)
-
         annualized_sigma = self.__stock_data["Z"].std() * np.sqrt(252)
         annualized_mu = self.__stock_data["Z"].mean() * 252
 
