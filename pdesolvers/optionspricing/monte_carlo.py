@@ -1,9 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-class GeometricBrownianMotion:
+from pdesolvers.enums.enums import OptionType
 
-    def __init__(self, S0, mu, sigma, T, time_steps, sim):
+class MonteCarloPricing:
+
+    def __init__(self, option_type: OptionType, S0, strike_price, r, sigma, T, time_steps, sim):
         """
         Initialize the Geometric Brownian Motion model with the given parameters.
 
@@ -16,13 +18,30 @@ class GeometricBrownianMotion:
         - sim: Number of simulations to run
         """
 
+        self.__option_type = option_type
         self.__S0 = S0
-        self.__mu = mu
+        self.__strike_price = strike_price
+        self.__r = r
         self.__sigma = sigma
         self.__T = T
         self.__time_steps = time_steps
         self.__sim = sim
         self.__S = None
+
+    def get_monte_carlo_option_price(self):
+
+        S = self.simulate_gbm()
+
+        if self.__option_type == OptionType.EUROPEAN_CALL:
+            payoff = np.maximum(S[:, -1] - self.__strike_price, 0)
+        elif self.__option_type == OptionType.EUROPEAN_PUT:
+            payoff = np.maximum(self.__strike_price - S[:, -1], 0)
+        else:
+            raise ValueError(f'Unsupported Option Type: {self.__option_type}')
+
+        option_price = np.exp(-self.__r * self.__T) * np.mean(payoff)
+
+        return option_price
 
     def simulate_gbm(self):
         """
@@ -46,11 +65,11 @@ class GeometricBrownianMotion:
                 # updates brownian motion
                 B[i,j] = B[i,j-1] + np.sqrt(dt) * Z[i,j-1]
                 # calculates stock price based on the incremental difference
-                S[i,j] = S[i, j-1] * np.exp((self.__mu - 0.5*self.__sigma**2)*dt + self.__sigma * (B[i, j] - B[i, j - 1]))
+                S[i,j] = S[i, j-1] * np.exp((self.__r - 0.5*self.__sigma**2)*dt + self.__sigma * (B[i, j] - B[i, j - 1]))
 
         self.__S = S
 
-        return self
+        return self.__S
 
     def __generate_grid(self):
         """
@@ -62,37 +81,18 @@ class GeometricBrownianMotion:
 
         return np.linspace(0, self.__T, self.__time_steps)
 
-    def __get_stock_prices(self):
-        """
-        Get the simulated stock prices.
-
-        Returns:
-        - A numpy array of simulated stock prices.
-        """
-
-        return self.__S
-
     def plot(self):
         """
         Plot the simulated stock prices for all simulations.
         """
 
         t = self.__generate_grid()
-        S = self.__get_stock_prices()
 
         fig = plt.figure(figsize=(10,6))
-        for i in range(self.__sim):
-            plt.plot(t, S[i])
+        for i in range(np.min([100, self.__sim])):
+            plt.plot(t, self.__S[i], color='grey', alpha=0.3)
 
         plt.title("Simulated Geometric Brownian Motion")
         plt.xlabel("Time (Years)")
         plt.ylabel("Stock Price")
         plt.show()
-
-
-def main():
-    GeometricBrownianMotion(100, 0.05, 0.03, 1, 365, 100).simulate_gbm().plot()
-
-if __name__ == "__main__":
-    main()
-

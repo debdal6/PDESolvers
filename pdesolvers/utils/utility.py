@@ -1,4 +1,6 @@
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 from scipy.sparse import csc_matrix
 
 import pdesolvers.enums.enums as enum
@@ -153,3 +155,41 @@ class RBFInterpolator:
         interpolated /= sum_rbf
 
         return interpolated
+
+class GPUResults:
+
+    def __init__(self, file_path, s_max, expiry):
+        self.__file_path = file_path
+        self.__s_max = s_max
+        self.__expiry = expiry
+        self.__grid_data = None
+
+    def get_results(self):
+
+        # Load data
+        df = pd.read_csv(self.__file_path, header=None)
+        print(f"Data shape: {df.shape}")
+
+        self.__grid_data = df.values.T
+
+        return self.__grid_data
+
+    def plot_option_surface(self):
+        if self.__grid_data is None:
+            self.get_results()
+
+        price_grid = np.linspace(0, self.__s_max, self.__grid_data.shape[0])
+        time_grid = np.linspace(0, self.__expiry, self.__grid_data.shape[1])
+        X, Y = np.meshgrid(time_grid, price_grid)
+
+        fig = plt.figure(figsize=(10, 6))
+        ax = fig.add_subplot(111, projection='3d')
+        surf = ax.plot_surface(X, Y, self.__grid_data, cmap='viridis')
+
+        ax.set_xlabel('Time')
+        ax.set_ylabel('Asset Price')
+        ax.set_zlabel('Option Value')
+        ax.set_title('Option Value Surface Plot')
+        fig.colorbar(surf, shrink=0.5, aspect=5)
+
+        plt.show()

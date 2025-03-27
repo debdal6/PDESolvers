@@ -4,6 +4,7 @@ scipy==1.14.1
 pandas==2.2.3
 pytest==8.3.4
 pytest-cov==6.0.0
+yfinance==0.2.55
 setuptools
 wheel
 twine
